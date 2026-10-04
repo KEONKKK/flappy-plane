@@ -251,6 +251,7 @@ if (!isRunningStandalone()) {
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
+    installBtn.disabled = false;
     installBtn.classList.remove("hidden");
   });
 
