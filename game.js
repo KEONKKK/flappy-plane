@@ -633,6 +633,8 @@ function drawPixelCar(x, y, color) {
 }
 
 // --- מטוס נוסעים גנרי, מצויר בקוד בסגנון פיקסל-ארט (ללא לוגו חברת תעופה) ---
+// לבן כולו (גוף/גחון/כנף/זנב) — הנפח מגיע רק מהצללה באפור בהיר ומקו
+// מתאר כהה, לא מצבע. ראו design/SPEC.md לטבלת הצבעים המלאה.
 function drawPlane(x, y, angle = 0) {
   ctx.save();
   ctx.translate(x, y);
@@ -640,10 +642,12 @@ function drawPlane(x, y, angle = 0) {
 
   const w = CONFIG.PLANE_WIDTH;
   const h = CONFIG.PLANE_HEIGHT;
+  const white = "#f5f8fa";
+  const shade = "#c7d0d6";
   const outline = "#1b2a38";
 
   // זנב (מצויר ראשון, מתחת לגוף)
-  ctx.fillStyle = "#d8232a";
+  ctx.fillStyle = shade;
   ctx.beginPath();
   ctx.moveTo(-w / 2 + 2, -h / 2 + 2);
   ctx.lineTo(-w / 2 - 8, -h);
@@ -655,7 +659,7 @@ function drawPlane(x, y, angle = 0) {
   ctx.stroke();
 
   // כנף
-  ctx.fillStyle = "#c21f27";
+  ctx.fillStyle = shade;
   ctx.beginPath();
   ctx.moveTo(-6, h / 2 - 4);
   ctx.lineTo(-20, h + 6);
@@ -665,7 +669,7 @@ function drawPlane(x, y, angle = 0) {
   ctx.stroke();
 
   // גוף ראשי — מלבן שטוח עם חרטום משופע, לא אליפסה חלקה
-  ctx.fillStyle = "#eef3f6";
+  ctx.fillStyle = white;
   ctx.beginPath();
   ctx.moveTo(-w / 2, -h / 2);
   ctx.lineTo(w / 2 - 10, -h / 2);
@@ -676,15 +680,14 @@ function drawPlane(x, y, angle = 0) {
   ctx.fill();
   ctx.stroke();
 
-  // פס גוף כחול
-  ctx.fillStyle = "#2b6cb0";
-  ctx.fillRect(-w / 2, 3, w - 6, 5);
-
-  // שורת חלונות מרובעים
-  ctx.fillStyle = "#1b2a38";
+  // שורת חלונות תא הנוסעים
+  ctx.fillStyle = outline;
   for (let i = -3; i <= 1; i++) {
     ctx.fillRect(i * 8 - 2, -5, 5, 5);
   }
+
+  // חלון תא הטייס — פאנל כהה נפרד, קרוב לחרטום
+  ctx.fillRect(12, -3, 6, 6);
 
   ctx.restore();
 }
