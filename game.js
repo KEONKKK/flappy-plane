@@ -453,6 +453,16 @@ function drawTowers() {
   }
 }
 
+// צבעי המגדלים (סעיף 6): כהים ורוויים יותר מכל בניין שברקע (שעבר הקהיה
+// ברוויה/ניגודיות בנכס הרקע עצמו), עם קו מתאר באותו גוון כמו המטוס
+// (עקביות חזותית) וצל רך וצר בצד ימין לנפח — כך שגם במבט חטוף ברור
+// שזה מכשול ולא עוד בניין רקע. ראו design/SPEC.md, "היררכיית בהירות".
+const TOWER_FILL = "#3f5564";
+const TOWER_OUTLINE = "#1b2a38";
+const TOWER_SHADOW = "rgba(10, 18, 26, 0.32)";
+const TOWER_SHADOW_WIDTH = 7;
+const TOWER_WINDOW_COLOR = "#d9f2fb";
+
 // מצייר קטע מגדל אחד (חלק עליון תלוי מהתקרה, או חלק תחתון עולה מהרצפה).
 function drawTowerSegment(x, yTop, height, w, shape, isHanging) {
   if (height <= 0) return;
@@ -463,16 +473,19 @@ function drawTowerSegment(x, yTop, height, w, shape, isHanging) {
   const bodyBottom = isHanging ? yTop + height - tipH : yTop + height;
   const bodyH = bodyBottom - bodyTop;
 
-  ctx.fillStyle = "#9aa0a6";
-  ctx.strokeStyle = "#6e7378";
+  ctx.fillStyle = TOWER_FILL;
+  ctx.strokeStyle = TOWER_OUTLINE;
   ctx.lineWidth = 2;
 
   if (bodyH > 0) {
     ctx.fillRect(x, bodyTop, w, bodyH);
-    ctx.strokeRect(x, bodyTop, w, bodyH);
     drawWindowGrid(x, bodyTop, w, bodyH);
+    ctx.fillStyle = TOWER_SHADOW;
+    ctx.fillRect(x + w - TOWER_SHADOW_WIDTH, bodyTop, TOWER_SHADOW_WIDTH, bodyH);
+    ctx.strokeRect(x, bodyTop, w, bodyH);
   }
 
+  ctx.fillStyle = TOWER_FILL;
   if (shape === "round") {
     ctx.beginPath();
     if (isHanging) {
@@ -508,7 +521,7 @@ function drawWindowGrid(x, y, w, h) {
   const pad = 7;
   const cell = 8;
   const gap = 5;
-  ctx.fillStyle = "#bfe3f0";
+  ctx.fillStyle = TOWER_WINDOW_COLOR;
   for (let wy = y + pad; wy <= y + h - pad - cell; wy += cell + gap) {
     for (let wx = x + pad; wx <= x + w - pad - cell; wx += cell + gap) {
       ctx.fillRect(wx, wy, cell, cell);
