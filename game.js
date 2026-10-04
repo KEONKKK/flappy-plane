@@ -26,6 +26,38 @@ const CONFIG = {
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+// --- מצבי משחק ---
+const STATE = { START: "start", PLAYING: "playing", GAMEOVER: "gameover" };
+let gameState = STATE.START;
+
+const startScreen = document.getElementById("start-screen");
+const gameoverScreen = document.getElementById("gameover-screen");
+const hud = document.getElementById("hud");
+const startBtn = document.getElementById("start-btn");
+const retryBtn = document.getElementById("retry-btn");
+
+function updateScreens() {
+  startScreen.classList.toggle("hidden", gameState !== STATE.START);
+  gameoverScreen.classList.toggle("hidden", gameState !== STATE.GAMEOVER);
+  hud.classList.toggle("hidden", gameState !== STATE.PLAYING);
+}
+
+function startGame() {
+  resetPlane();
+  resetTowers();
+  gameState = STATE.PLAYING;
+  updateScreens();
+}
+
+function endGame() {
+  gameState = STATE.GAMEOVER;
+  updateScreens();
+}
+
+startBtn.addEventListener("click", startGame);
+retryBtn.addEventListener("click", startGame);
+updateScreens();
+
 // --- מצב המטוס ---
 const plane = {
   x: CONFIG.PLANE_X,
@@ -44,10 +76,19 @@ function flap() {
   plane.vy = CONFIG.JUMP_FORCE;
 }
 
-// --- קלט: קליק, מקש רווח, נגיעה ---
+// --- קלט: קליק, מקש רווח, נגיעה — פועל לפי מצב המשחק הנוכחי ---
+function handlePrimaryAction() {
+  if (gameState === STATE.START) {
+    startGame();
+  } else if (gameState === STATE.PLAYING) {
+    flap();
+  }
+  // במצב GAMEOVER הפעולה היחידה היא כפתור "נסה שוב"
+}
+
 function onFlapInput(e) {
   e.preventDefault();
-  flap();
+  handlePrimaryAction();
 }
 
 canvas.addEventListener("mousedown", onFlapInput);
@@ -55,7 +96,7 @@ canvas.addEventListener("touchstart", onFlapInput, { passive: false });
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     e.preventDefault();
-    flap();
+    handlePrimaryAction();
   }
 });
 
@@ -76,8 +117,39 @@ function gameLoop(now) {
 }
 
 function update(dt, dtMs) {
+  if (gameState !== STATE.PLAYING) return;
   updatePlanePhysics(dt);
   updateTowers(dt, dtMs);
+  if (checkCollisions()) {
+    endGame();
+  }
+}
+
+// --- התנגשויות: רצפה, תקרה, מגדלים ---
+function checkCollisions() {
+  const halfW = (CONFIG.PLANE_WIDTH / 2) * 0.8;
+  const halfH = (CONFIG.PLANE_HEIGHT / 2) * 0.8;
+  const top = plane.y - halfH;
+  const bottom = plane.y + halfH;
+  const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
+
+  if (bottom >= floorY) return true; // התנגשות ברצפה
+  if (top <= 0) return true; // התנגשות בתקרה
+
+  const left = plane.x - halfW;
+  const right = plane.x + halfW;
+  const half = CONFIG.TOWER_GAP / 2;
+
+  for (const t of towers) {
+    const towerLeft = t.x;
+    const towerRight = t.x + CONFIG.TOWER_WIDTH;
+    if (right > towerLeft && left < towerRight) {
+      const gapTop = t.gapY - half;
+      const gapBottom = t.gapY + half;
+      if (top < gapTop || bottom > gapBottom) return true; // התנגשות במגדל
+    }
+  }
+  return false;
 }
 
 function updatePlanePhysics(dt) {
