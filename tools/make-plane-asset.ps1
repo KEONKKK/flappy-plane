@@ -159,6 +159,60 @@ foreach ($region in $PaintRegions) {
   }
 }
 
+# --- שלב 4.5: קו מתאר כהה (2px) + הילה בהירה (1px) נוספים, אפויים לתוך הנכס ---
+# "סעיף 3" בבקשת השיפור: המטוס חייב להיבדל גם מול בניין כהה וגם מול ענן
+# לבן. מרחיבים את מסכת האטימות החוצה פעמיים (8-קישוריות, כולל אלכסונים
+# כדי שהפינות ייראו רציפות): הטבעת הראשונה (2px) מקבלת את צבע קו המתאר,
+# הטבעת השנייה (1px נוסף) מקבלת צבע בהיר — "הילה" שעוזרת גם על רקע כהה.
+Write-Output "Baking outline + halo..."
+$OutlineColor = @{ R = 0x1b; G = 0x2a; B = 0x38 }
+$HaloColor = @{ R = 0xf5; G = 0xf8; B = 0xfa }
+
+function Expand-Mask([bool[]]$src, [int]$w, [int]$h) {
+  $out = [bool[]]$src.Clone()
+  for ($y = 0; $y -lt $h; $y++) {
+    $rowBase = $y * $w
+    for ($x = 0; $x -lt $w; $x++) {
+      $idx = $rowBase + $x
+      if ($src[$idx]) { continue }
+      $adj = $false
+      if ($x -gt 0 -and $src[$idx - 1]) { $adj = $true }
+      elseif ($x -lt ($w - 1) -and $src[$idx + 1]) { $adj = $true }
+      elseif ($y -gt 0 -and $src[$idx - $w]) { $adj = $true }
+      elseif ($y -lt ($h - 1) -and $src[$idx + $w]) { $adj = $true }
+      elseif ($x -gt 0 -and $y -gt 0 -and $src[$idx - $w - 1]) { $adj = $true }
+      elseif ($x -lt ($w - 1) -and $y -gt 0 -and $src[$idx - $w + 1]) { $adj = $true }
+      elseif ($x -gt 0 -and $y -lt ($h - 1) -and $src[$idx + $w - 1]) { $adj = $true }
+      elseif ($x -lt ($w - 1) -and $y -lt ($h - 1) -and $src[$idx + $w + 1]) { $adj = $true }
+      if ($adj) { $out[$idx] = $true }
+    }
+  }
+  return $out
+}
+
+$opaqueMask = New-Object bool[] ($w * $h)
+for ($i = 0; $i -lt $isBg.Length; $i++) { $opaqueMask[$i] = -not $isBg[$i] }
+
+$ring1 = Expand-Mask $opaqueMask $w $h   # +1px
+$ring2 = Expand-Mask $ring1 $w $h        # +2px (גבול קו המתאר)
+$ring3 = Expand-Mask $ring2 $w $h        # +3px (גבול ההילה)
+
+for ($i = 0; $i -lt ($w * $h); $i++) {
+  $isOutline = $ring2[$i] -and (-not $opaqueMask[$i])
+  $isHalo = $ring3[$i] -and (-not $ring2[$i])
+  if ($isOutline -or $isHalo) {
+    $y = [int][math]::Floor($i / $w)
+    $x = $i - ($y * $w)
+    $pi = ($y * $stride) + ($x * 4)
+    $color = if ($isOutline) { $OutlineColor } else { $HaloColor }
+    $bytes[$pi] = $color.B
+    $bytes[$pi + 1] = $color.G
+    $bytes[$pi + 2] = $color.R
+    $bytes[$pi + 3] = 255
+    $isBg[$i] = $false
+  }
+}
+
 [System.Runtime.InteropServices.Marshal]::Copy($bytes, 0, $bd.Scan0, $bytes.Length)
 $work.UnlockBits($bd)
 
