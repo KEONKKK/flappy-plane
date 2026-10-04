@@ -86,6 +86,20 @@ function playCrashSound() {
   playTone(200, 40, 0.4, "sawtooth", 0.2);
 }
 
+// אייפון (ובדפדפנים ניידים נוספים) חוסם הפעלת אודיו לפני אינטראקציית משתמש.
+// פותחים את ה-AudioContext כבר במגע/קליק/מקש הראשון בעמוד, כדי שצלילים
+// מאוחרים יותר (כולל כאלה שמופעלים מתוך לולאת המשחק, לא ישירות ממחווה)
+// יעבדו בלי עיכוב או חסימה.
+function unlockAudioOnce() {
+  getAudioCtx();
+  window.removeEventListener("touchstart", unlockAudioOnce);
+  window.removeEventListener("mousedown", unlockAudioOnce);
+  window.removeEventListener("keydown", unlockAudioOnce);
+}
+window.addEventListener("touchstart", unlockAudioOnce, { passive: true });
+window.addEventListener("mousedown", unlockAudioOnce);
+window.addEventListener("keydown", unlockAudioOnce);
+
 // --- מצבי משחק ---
 const STATE = { START: "start", PLAYING: "playing", GAMEOVER: "gameover" };
 let gameState = STATE.START;
@@ -181,8 +195,14 @@ function handlePrimaryAction() {
   // במצב GAMEOVER הפעולה היחידה היא כפתור "נסה שוב"
 }
 
+// מגן מפני הפעלה כפולה מאותה נגיעה (touchstart ואחריו mousedown סינתטי
+// שדפדפנים ניידים עלולים עדיין לשגר, גם אחרי preventDefault).
+let lastInputTime = 0;
 function onFlapInput(e) {
   e.preventDefault();
+  const now = performance.now();
+  if (now - lastInputTime < 80) return;
+  lastInputTime = now;
   handlePrimaryAction();
 }
 
@@ -191,6 +211,7 @@ canvas.addEventListener("touchstart", onFlapInput, { passive: false });
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     e.preventDefault();
+    if (e.repeat) return; // החזקת המקש לא גורמת לדחיפות חוזרות
     handlePrimaryAction();
   }
 });
