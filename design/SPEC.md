@@ -73,7 +73,9 @@
 ## רקע: תמונת עיר (לא ציור בקוד)
 
 נכס יחיד, `assets/background-city.png`, מעובד מ-
-`design/raw/background-source.jpg` דרך `tools/make-background-asset.ps1`:
+`design/raw/new_bck_5.10.png` (1671×941 — תמונת מקור מעודכנת, 2026-10-05;
+`design/raw/background-source.jpg` המקורית נשארת כגיבוי/הפניה היסטורית)
+דרך `tools/make-background-asset.ps1`:
 
 1. **דה-סטורציה עדינה**: כל ערוץ (R/G/B) נמזג 28% לכיוון הבהירות
    (luminance) שלו, **במרחב RGB ישיר — לא המרת HSL**. (ניסיון קודם
