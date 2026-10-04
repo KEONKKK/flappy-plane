@@ -35,6 +35,9 @@ const gameoverScreen = document.getElementById("gameover-screen");
 const hud = document.getElementById("hud");
 const startBtn = document.getElementById("start-btn");
 const retryBtn = document.getElementById("retry-btn");
+const scoreEl = document.getElementById("score");
+const finalScoreEl = document.getElementById("final-score");
+const highScoreEl = document.getElementById("high-score");
 
 function updateScreens() {
   startScreen.classList.toggle("hidden", gameState !== STATE.START);
@@ -42,15 +45,44 @@ function updateScreens() {
   hud.classList.toggle("hidden", gameState !== STATE.PLAYING);
 }
 
+// --- ניקוד ושיא (נשמר ב-localStorage) ---
+const HIGH_SCORE_KEY = "flappyPlaneHighScore";
+let score = 0;
+
+function getHighScore() {
+  return Number(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+}
+
+function saveHighScoreIfNeeded(value) {
+  if (value > getHighScore()) {
+    localStorage.setItem(HIGH_SCORE_KEY, String(value));
+  }
+}
+
+function updateScore() {
+  for (const t of towers) {
+    if (!t.passed && t.x + CONFIG.TOWER_WIDTH < plane.x) {
+      t.passed = true;
+      score++;
+      scoreEl.textContent = String(score);
+    }
+  }
+}
+
 function startGame() {
   resetPlane();
   resetTowers();
+  score = 0;
+  scoreEl.textContent = "0";
   gameState = STATE.PLAYING;
   updateScreens();
 }
 
 function endGame() {
   gameState = STATE.GAMEOVER;
+  saveHighScoreIfNeeded(score);
+  finalScoreEl.textContent = String(score);
+  highScoreEl.textContent = String(getHighScore());
   updateScreens();
 }
 
@@ -120,6 +152,7 @@ function update(dt, dtMs) {
   if (gameState !== STATE.PLAYING) return;
   updatePlanePhysics(dt);
   updateTowers(dt, dtMs);
+  updateScore();
   if (checkCollisions()) {
     endGame();
   }
