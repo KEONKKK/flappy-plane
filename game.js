@@ -64,19 +64,20 @@ let lastTime = null;
 
 function gameLoop(now) {
   if (lastTime === null) lastTime = now;
-  const dtMs = now - lastTime;
+  const dtMs = Math.min(now - lastTime, 50);
   lastTime = now;
   // מנורמל כך ש-1.0 = פריים אחד ב-60fps
-  const dt = Math.min(dtMs / (1000 / 60), 3);
+  const dt = dtMs / (1000 / 60);
 
-  update(dt);
+  update(dt, dtMs);
   render();
 
   requestAnimationFrame(gameLoop);
 }
 
-function update(dt) {
+function update(dt, dtMs) {
   updatePlanePhysics(dt);
+  updateTowers(dt, dtMs);
 }
 
 function updatePlanePhysics(dt) {
@@ -92,8 +93,126 @@ function updatePlanePhysics(dt) {
 
 function render() {
   drawSky();
+  drawTowers();
   drawGround();
   drawPlane(plane.x, plane.y, plane.angle);
+}
+
+// --- מגדלים (בסגנון מגדלי עזריאלי: עגול / משולש / מרובע, מתחלפים) ---
+const TOWER_SHAPES = ["round", "triangle", "square"];
+let towers = [];
+let towerSpawnTimer = 0;
+let nextShapeIndex = 0;
+
+function resetTowers() {
+  towers = [];
+  towerSpawnTimer = 0;
+  nextShapeIndex = 0;
+}
+
+function spawnTower() {
+  const margin = 60;
+  const half = CONFIG.TOWER_GAP / 2;
+  const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
+  const minGapY = margin + half;
+  const maxGapY = floorY - margin - half;
+  const gapY = minGapY + Math.random() * Math.max(0, maxGapY - minGapY);
+  const shape = TOWER_SHAPES[nextShapeIndex % TOWER_SHAPES.length];
+  nextShapeIndex++;
+  towers.push({
+    x: CONFIG.WIDTH,
+    gapY,
+    shape,
+    passed: false,
+  });
+}
+
+function updateTowers(dt, dtMs) {
+  towerSpawnTimer += dtMs;
+  if (towerSpawnTimer >= CONFIG.TOWER_INTERVAL) {
+    towerSpawnTimer -= CONFIG.TOWER_INTERVAL;
+    spawnTower();
+  }
+  for (const t of towers) {
+    t.x -= CONFIG.TOWER_SPEED * dt;
+  }
+  towers = towers.filter((t) => t.x + CONFIG.TOWER_WIDTH > 0);
+}
+
+function drawTowers() {
+  for (const t of towers) {
+    const half = CONFIG.TOWER_GAP / 2;
+    const topHeight = t.gapY - half;
+    const bottomY = t.gapY + half;
+    const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
+    const bottomHeight = floorY - bottomY;
+
+    drawTowerSegment(t.x, 0, topHeight, CONFIG.TOWER_WIDTH, t.shape, true);
+    drawTowerSegment(t.x, bottomY, bottomHeight, CONFIG.TOWER_WIDTH, t.shape, false);
+  }
+}
+
+// מצייר קטע מגדל אחד (חלק עליון תלוי מהתקרה, או חלק תחתון עולה מהרצפה).
+function drawTowerSegment(x, yTop, height, w, shape, isHanging) {
+  if (height <= 0) return;
+
+  const radius = w / 2;
+  const tipH = shape === "square" ? 0 : shape === "round" ? radius : Math.min(26, height * 0.35);
+  const bodyTop = isHanging ? yTop : yTop + tipH;
+  const bodyBottom = isHanging ? yTop + height - tipH : yTop + height;
+  const bodyH = bodyBottom - bodyTop;
+
+  ctx.fillStyle = "#9aa0a6";
+  ctx.strokeStyle = "#6e7378";
+  ctx.lineWidth = 2;
+
+  if (bodyH > 0) {
+    ctx.fillRect(x, bodyTop, w, bodyH);
+    ctx.strokeRect(x, bodyTop, w, bodyH);
+    drawWindowGrid(x, bodyTop, w, bodyH);
+  }
+
+  if (shape === "round") {
+    ctx.beginPath();
+    if (isHanging) {
+      ctx.moveTo(x, bodyBottom);
+      ctx.arc(x + radius, bodyBottom, radius, Math.PI, 0, true);
+    } else {
+      ctx.moveTo(x, bodyTop);
+      ctx.arc(x + radius, bodyTop, radius, Math.PI, 2 * Math.PI, false);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (shape === "triangle") {
+    ctx.beginPath();
+    if (isHanging) {
+      ctx.moveTo(x, bodyBottom);
+      ctx.lineTo(x + w, bodyBottom);
+      ctx.lineTo(x + w / 2, yTop + height);
+    } else {
+      ctx.moveTo(x, bodyTop);
+      ctx.lineTo(x + w, bodyTop);
+      ctx.lineTo(x + w / 2, yTop);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  // מרובע: הגג כבר שטוח כחלק מהמלבן, אין צורך בקצה נוסף.
+}
+
+// רשת חלונות על גוף המגדל.
+function drawWindowGrid(x, y, w, h) {
+  const pad = 7;
+  const cell = 8;
+  const gap = 5;
+  ctx.fillStyle = "#bfe3f0";
+  for (let wy = y + pad; wy <= y + h - pad - cell; wy += cell + gap) {
+    for (let wx = x + pad; wx <= x + w - pad - cell; wx += cell + gap) {
+      ctx.fillRect(wx, wy, cell, cell);
+    }
+  }
 }
 
 // --- רקע: שמיים ---
