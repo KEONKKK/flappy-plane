@@ -226,6 +226,54 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+// --- התקנה כאפליקציה (PWA): כפתור באנדרואיד, הנחיה באייפון ---
+function isRunningStandalone() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    window.navigator.standalone === true // דגל ישן של Safari באייפון
+  );
+}
+
+function isIOSDevice() {
+  const ua = window.navigator.userAgent;
+  const isAppleTouch = /iPad|iPhone|iPod/.test(ua);
+  const isIPadOS13Plus = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return isAppleTouch || isIPadOS13Plus;
+}
+
+const installBtn = document.getElementById("install-btn");
+const iosInstallHint = document.getElementById("ios-install-hint");
+let deferredInstallPrompt = null;
+
+if (!isRunningStandalone()) {
+  // אנדרואיד/כרום: הדפדפן מודיע שאפשר להתקין — מציגים כפתור משלנו.
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    installBtn.classList.remove("hidden");
+  });
+
+  installBtn.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+    installBtn.disabled = true;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    installBtn.classList.add("hidden");
+  });
+
+  window.addEventListener("appinstalled", () => {
+    installBtn.classList.add("hidden");
+    iosInstallHint.classList.add("hidden");
+  });
+
+  // אייפון: אין beforeinstallprompt — מציגים הנחיה קבועה למסך הפתיחה.
+  if (isIOSDevice()) {
+    iosInstallHint.classList.remove("hidden");
+  }
+}
+
 // כפתור ה-START הפיזי על מארז הטלוויזיה — אותה פעולה כמו קליק על המסך.
 const tvStartBtn = document.getElementById("tv-start-btn");
 tvStartBtn.addEventListener("click", (e) => {

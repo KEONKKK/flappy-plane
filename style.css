@@ -182,6 +182,45 @@ canvas#game {
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 
+/* ─── התקנה כאפליקציה (PWA) ─── */
+.install-btn {
+  margin-top: 2px;
+  padding: 9px 22px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: #ffe9d6;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 233, 214, 0.5);
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+
+.install-btn:active {
+  transform: translateY(2px);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.install-btn.hidden {
+  display: none;
+}
+
+#ios-install-hint {
+  max-width: 260px;
+  line-height: 1.5;
+}
+
+#ios-install-hint.hidden {
+  display: none;
+}
+
+.share-icon {
+  display: inline-block;
+  transform: translateY(2px);
+}
+
 /* ─── HUD במהלך המשחק (בסגנון ארקייד: ציון משמאל, לוגו מימין) ─── */
 #hud {
   position: absolute;
