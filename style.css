@@ -138,6 +138,15 @@ canvas#game {
   display: none;
 }
 
+#loading-screen {
+  z-index: 5; /* מעל שאר המסכים עד שהנכסים נטענים */
+}
+
+.loading-text {
+  font-size: 1.2rem;
+  letter-spacing: 1px;
+}
+
 .overlay h1 {
   font-size: 1.5rem;
   letter-spacing: 1px;

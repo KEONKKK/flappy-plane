@@ -12,17 +12,20 @@ const CONFIG = {
   MAX_RISE_SPEED: -10,    // מהירות עלייה מקסימלית
 
   TOWER_SPEED: 2.5,       // פיקסלים/פריים (יחסי ל-60fps)
-  TOWER_GAP: 160,         // רווח אנכי בין שני חלקי המגדל
+  TOWER_GAP: 172,         // רווח אנכי בין שני חלקי המגדל (הורחב קצת ב"סעיף 2" כדי לפצות על מטוס גדול יותר)
   TOWER_INTERVAL: 1500,   // מילישניות בין מגדל למגדל
   TOWER_WIDTH: 70,
 
-  GROUND_HEIGHT: 40,
+  GROUND_HEIGHT: 40,      // גובה קו הרצפה (קולייז'ן בלבד — אין יותר ציור רצפה נפרד)
 
-  PLANE_X: 110,           // מיקום אופקי קבוע של המטוס
-  PLANE_WIDTH: 54,
-  PLANE_HEIGHT: 22,
+  PLANE_X: 110,                 // מיקום אופקי קבוע של המטוס
+  PLANE_DISPLAY_WIDTH: 68,      // 17% מרוחב אזור המשחק (400) — הגובה נגזר מיחס הרוחב-גובה של התמונה (ללא מתיחה)
+  PLANE_HITBOX_WIDTH_SCALE: 0.84,  // תיבת הפגיעה קטנה מהמלבן המלא של תמונת המטוס, באותו יחס כמו לפני ההגדלה
+  PLANE_HITBOX_HEIGHT_SCALE: 0.55, // (הזנב/הכנף המחודדים לא נספרים כפגיעה)
+  PLANE_TILT_UP_MAX: (-20 * Math.PI) / 180,   // הטיית אף מקסימלית למעלה: 20°
+  PLANE_TILT_DOWN_MAX: (25 * Math.PI) / 180,  // הטיית אף מקסימלית למטה: 25°
 
-  PARALLAX_FACTOR: 0.35,  // קו הרקיע זז ביחס הזה ממהירות המגדלים
+  CITY_PARALLAX_FACTOR: 1 / 3,  // שכבת העיר/שמיים גוללת בשליש ממהירות המגדלים
 };
 
 const canvas = document.getElementById("game");
@@ -38,6 +41,12 @@ const PIXEL_SCALE = 0.35;
   ctx.scale(PIXEL_SCALE, PIXEL_SCALE);
 })();
 
+// מעגל קואורדינטה לוגית לרשת הפיקסלים האמיתית של מאגר הציור, כדי שהמטוס
+// (שזז כל פריים) ירד תמיד על גבול פיקסל שלם — בלי רעידות/טשטוש תת-פיקסל.
+function snapToPixelGrid(value) {
+  return Math.round(value * PIXEL_SCALE) / PIXEL_SCALE;
+}
+
 // מונע גלילה/זום של הדף במהלך משחק במובייל.
 document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 
@@ -49,6 +58,30 @@ if ("serviceWorker" in navigator) {
       // כשלון ברישום לא אמור לעצור את המשחק — הוא ימשיך לעבוד בלי מצב אופליין.
     });
   });
+}
+
+// --- מניפסט נכסים: טעינה מסודרת מראש, לפני תחילת המשחק ---
+// כל רכיב גרפי עתידי (רקעים נוספים, וכו') עובר דרך אותו מנגנון טעינה.
+const ASSET_MANIFEST = {
+  plane: "assets/plane.png",
+  backgroundCity: "assets/background-city.png",
+};
+const assets = {};
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load asset: " + src));
+    img.src = src;
+  });
+}
+
+function loadAssets(manifest) {
+  const keys = Object.keys(manifest);
+  return Promise.all(
+    keys.map((key) => loadImage(manifest[key]).then((img) => { assets[key] = img; }))
+  );
 }
 
 // --- צלילים קצרים דרך Web Audio API, בלי קובצי אודיו ---
@@ -114,6 +147,7 @@ window.addEventListener("keydown", unlockAudioOnce);
 const STATE = { START: "start", PLAYING: "playing", GAMEOVER: "gameover" };
 let gameState = STATE.START;
 
+const loadingScreen = document.getElementById("loading-screen");
 const startScreen = document.getElementById("start-screen");
 const gameoverScreen = document.getElementById("gameover-screen");
 const hud = document.getElementById("hud");
@@ -183,6 +217,10 @@ const plane = {
   vy: 0,
   angle: 0,
 };
+
+// גובה התצוגה של המטוס בפועל — מחושב פעם אחת אחרי טעינת התמונה, לפי
+// יחס הרוחב-גובה האמיתי שלה (עוגן: CONFIG.PLANE_DISPLAY_WIDTH), כדי לא למתוח אותה.
+let planeDisplayHeight = 0;
 
 function resetPlane() {
   plane.y = CONFIG.HEIGHT / 2;
@@ -299,13 +337,13 @@ function gameLoop(now) {
 }
 
 function update(dt, dtMs) {
-  // רקעים ממשיכים לזוז גם במסכי פתיחה/סיום, לאפקט רקע חי
-  updateClouds(dt);
-  updateSkyline(dt);
+  // הרקע ממשיך לזוז גם במסך הפתיחה, לאפקט רקע חי, ונעצר במסך הסיום.
+  if (gameState !== STATE.GAMEOVER) {
+    updateBackgroundCity(dt);
+  }
   if (gameState !== STATE.PLAYING) return;
   updatePlanePhysics(dt);
   updateTowers(dt, dtMs);
-  updateRoad(dt);
   updateScore();
   if (checkCollisions()) {
     endGame();
@@ -314,8 +352,8 @@ function update(dt, dtMs) {
 
 // --- התנגשויות: רצפה, תקרה, מגדלים ---
 function checkCollisions() {
-  const halfW = (CONFIG.PLANE_WIDTH / 2) * 0.8;
-  const halfH = (CONFIG.PLANE_HEIGHT / 2) * 0.8;
+  const halfW = (CONFIG.PLANE_DISPLAY_WIDTH / 2) * CONFIG.PLANE_HITBOX_WIDTH_SCALE;
+  const halfH = (planeDisplayHeight / 2) * CONFIG.PLANE_HITBOX_HEIGHT_SCALE;
   const top = plane.y - halfH;
   const bottom = plane.y + halfH;
   const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
@@ -344,18 +382,20 @@ function updatePlanePhysics(dt) {
   plane.vy = Math.max(CONFIG.MAX_RISE_SPEED, Math.min(plane.vy, CONFIG.MAX_FALL_SPEED));
   plane.y += plane.vy * dt;
 
-  // הטיית האף: עולה כשמטפסים, צונחת כשנופלים, עם ריכוך לתנועה חלקה
-  const targetAngle = Math.max(-0.5, Math.min(0.9, plane.vy / 10));
+  // הטיית האף: עולה כשמטפסים, צונחת כשנופלים, עם ריכוך לתנועה חלקה.
+  // מוגבלת ל-20° למעלה / 25° למטה (CONFIG.PLANE_TILT_*) כדי שהמטוס לא
+  // יתהפך ויישאר קריא.
+  const targetAngle = Math.max(
+    CONFIG.PLANE_TILT_UP_MAX,
+    Math.min(CONFIG.PLANE_TILT_DOWN_MAX, plane.vy / 10)
+  );
   const ease = 1 - Math.pow(1 - 0.25, dt);
   plane.angle += (targetAngle - plane.angle) * ease;
 }
 
 function render() {
-  drawSky();
-  drawClouds();
-  drawSkyline();
+  drawBackgroundCity();
   drawTowers();
-  drawGround();
   drawPlane(plane.x, plane.y, plane.angle);
 }
 
@@ -476,220 +516,68 @@ function drawWindowGrid(x, y, w, h) {
   }
 }
 
-// --- רקע: שמיים (פסים שטוחים בסגנון פיקסל-ארט, לא גרדיאנט חלק) ---
-const SKY_BANDS = [
-  { color: "#4fb8ea", upto: 0.35 },
-  { color: "#6ec6ef", upto: 0.65 },
-  { color: "#9adcf2", upto: 1.0 },
-];
+// --- רקע: תמונת עיר+שמיים אחת (אין שכבת כביש נפרדת — ראו design/SPEC.md) ---
+// גוללת בלי תפר נראה בטכניקת "ריצוף מראה": מציירים את התמונה ואת ההיפוך
+// האופקי שלה לסירוגין (A, flip(A), A, flip(A)...). כך קצה ימין של כל
+// אריח תמיד זהה לקצה ימין של הבא אחריו (וכנ"ל משמאל) — אין קפיצה בתפר,
+// גם בלי שהתמונה המקורית תוכננה להיות ניתנת לריצוף.
+let cityOffset = 0;
+let cityTileWidth = 0; // מחושב אחרי טעינת התמונה, לפי יחס הרוחב-גובה שלה
 
-function drawSky() {
-  let prevY = 0;
-  for (const band of SKY_BANDS) {
-    const y = CONFIG.HEIGHT * band.upto;
-    ctx.fillStyle = band.color;
-    ctx.fillRect(0, prevY, CONFIG.WIDTH, y - prevY);
-    prevY = y;
-  }
+function updateBackgroundCity(dt) {
+  if (cityTileWidth <= 0) return; // עוד לא נטען
+  cityOffset += CONFIG.TOWER_SPEED * CONFIG.CITY_PARALLAX_FACTOR * dt;
+  cityOffset %= cityTileWidth * 2;
 }
 
-// --- עננים פיקסליים, parallax איטי מאוד ---
-const CLOUDS = [
-  { x: 30, y: 70, scale: 1.1 },
-  { x: 230, y: 50, scale: 0.9 },
-  { x: 330, y: 140, scale: 1.3 },
-  { x: 120, y: 160, scale: 0.8 },
-];
-const CLOUD_TILE_WIDTH = CONFIG.WIDTH + 140;
-let cloudOffset = 0;
+function drawBackgroundCity() {
+  const img = assets.backgroundCity;
+  if (!img || cityTileWidth <= 0) return;
 
-function updateClouds(dt) {
-  cloudOffset += CONFIG.TOWER_SPEED * CONFIG.PARALLAX_FACTOR * 0.4 * dt;
-  cloudOffset %= CLOUD_TILE_WIDTH;
-}
+  const displayH = CONFIG.HEIGHT; // מכסה את כל גובה אזור המשחק
+  const tileW = cityTileWidth;
+  const startX = -(cityOffset % (tileW * 2));
 
-function drawClouds() {
-  ctx.fillStyle = "#ffffff";
-  for (const tileStart of [-cloudOffset, -cloudOffset + CLOUD_TILE_WIDTH]) {
-    for (const c of CLOUDS) {
-      drawPixelCloud(tileStart + c.x, c.y, c.scale);
+  for (let x = startX, i = 0; x < CONFIG.WIDTH; x += tileW, i++) {
+    const flipped = (Math.round((x - startX) / tileW) % 2) === 1;
+    ctx.save();
+    if (flipped) {
+      ctx.translate(x + tileW, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, 0, 0, tileW, displayH);
+    } else {
+      ctx.drawImage(img, x, 0, tileW, displayH);
     }
+    ctx.restore();
   }
 }
 
-function drawPixelCloud(x, y, scale) {
-  const u = 8 * scale; // יחידת "פיקסל" של הענן
-  ctx.fillRect(x - u, y, u * 4, u);
-  ctx.fillRect(x, y - u, u * 2.5, u);
-}
-
-// --- קו רקיע של תל אביב, זז לאט יותר מהמגדלים (parallax) ---
-const SKYLINE_TILE_WIDTH = CONFIG.WIDTH;
-const SKYLINE_BUILDINGS = [
-  { x: 10, w: 40, h: 70, shape: "rect" },
-  { x: 55, w: 36, h: 100, shape: "round" },
-  { x: 100, w: 30, h: 60, shape: "rect" },
-  { x: 140, w: 44, h: 120, shape: "triangle" },
-  { x: 195, w: 34, h: 80, shape: "rect" },
-  { x: 240, w: 38, h: 95, shape: "round" },
-  { x: 290, w: 28, h: 65, shape: "rect" },
-  { x: 330, w: 42, h: 110, shape: "triangle" },
-  { x: 380, w: 20, h: 55, shape: "rect" },
-];
-let skylineOffset = 0;
-
-function updateSkyline(dt) {
-  skylineOffset += CONFIG.TOWER_SPEED * CONFIG.PARALLAX_FACTOR * dt;
-  skylineOffset %= SKYLINE_TILE_WIDTH;
-}
-
-function drawSkyline() {
-  const baseY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
-  ctx.save();
-  ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
-  for (const tileStart of [-skylineOffset, -skylineOffset + SKYLINE_TILE_WIDTH]) {
-    for (const b of SKYLINE_BUILDINGS) {
-      drawSkylineBuilding(tileStart + b.x, baseY, b.w, b.h, b.shape);
-    }
-  }
-  ctx.restore();
-}
-
-function drawSkylineBuilding(x, baseY, w, h, shape) {
-  const top = baseY - h;
-  ctx.beginPath();
-  if (shape === "round") {
-    const r = w / 2;
-    ctx.moveTo(x, baseY);
-    ctx.lineTo(x, top + r);
-    ctx.arc(x + r, top + r, r, Math.PI, 2 * Math.PI, false);
-    ctx.lineTo(x + w, baseY);
-  } else if (shape === "triangle") {
-    ctx.moveTo(x, baseY);
-    ctx.lineTo(x + w / 2, top);
-    ctx.lineTo(x + w, baseY);
-  } else {
-    ctx.rect(x, top, w, h);
-  }
-  ctx.closePath();
-  ctx.fill();
-}
-
-// --- כביש בתחתית המסך (במקום רצפת אדמה), עם מכוניות פיקסליות חולפות ---
-function drawGround() {
-  const y = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
-  ctx.fillStyle = "#3a3a3e";
-  ctx.fillRect(0, y, CONFIG.WIDTH, CONFIG.GROUND_HEIGHT);
-  ctx.fillStyle = "#2a2a2d";
-  ctx.fillRect(0, y, CONFIG.WIDTH, 6);
-
-  // פס הפרדה מקווקו, זז במהירות המגדלים (שכבת קדמה)
-  const dashY = y + CONFIG.GROUND_HEIGHT / 2 - 2;
-  ctx.fillStyle = "#f2c94c";
-  const dashWidth = 16;
-  const dashGap = 14;
-  const start = -(roadOffset % (dashWidth + dashGap));
-  for (let x = start; x < CONFIG.WIDTH; x += dashWidth + dashGap) {
-    ctx.fillRect(x, dashY, dashWidth, 4);
-  }
-
-  drawCars(y);
-}
-
-const CARS = [
-  { x: 40, color: "#e94f4f" },
-  { x: 220, color: "#4f8de9" },
-  { x: 330, color: "#f2c94c" },
-];
-const CAR_TILE_WIDTH = CONFIG.WIDTH + 120;
-let roadOffset = 0;
-
-function updateRoad(dt) {
-  roadOffset += CONFIG.TOWER_SPEED * dt;
-  roadOffset %= 100000;
-}
-
-function drawCars(roadY) {
-  const base = -(roadOffset % CAR_TILE_WIDTH);
-  ctx.save();
-  for (const tileStart of [base, base + CAR_TILE_WIDTH]) {
-    for (const car of CARS) {
-      drawPixelCar(tileStart + car.x, roadY + CONFIG.GROUND_HEIGHT - 14, car.color);
-    }
-  }
-  ctx.restore();
-}
-
-function drawPixelCar(x, y, color) {
-  ctx.fillStyle = "#000";
-  ctx.fillRect(x - 1, y - 1, 24, 12);
-  ctx.fillStyle = color;
-  ctx.fillRect(x, y, 22, 10);
-  ctx.fillStyle = "#cdeffd";
-  ctx.fillRect(x + 5, y - 5, 12, 6);
-  ctx.fillStyle = "#1a1a1a";
-  ctx.fillRect(x + 2, y + 8, 5, 5);
-  ctx.fillRect(x + 15, y + 8, 5, 5);
-}
-
-// --- מטוס נוסעים גנרי, מצויר בקוד בסגנון פיקסל-ארט (ללא לוגו חברת תעופה) ---
-// לבן כולו (גוף/גחון/כנף/זנב) — הנפח מגיע רק מהצללה באפור בהיר ומקו
-// מתאר כהה, לא מצבע. ראו design/SPEC.md לטבלת הצבעים המלאה.
+// --- מטוס נוסעים — תמונה אמיתית (assets/plane.png), לא צורות וקטוריות ---
+// גודל ויחס הרוחב-גובה נשמרים מהתמונה (ללא מתיחה); הסיבוב סביב מרכז המטוס;
+// המיקום מעוגל לרשת הפיקסלים האמיתית כדי למנוע רעידות/טשטוש תת-פיקסל.
 function drawPlane(x, y, angle = 0) {
+  const img = assets.plane;
+  if (!img || planeDisplayHeight <= 0) return;
+
+  const w = CONFIG.PLANE_DISPLAY_WIDTH;
+  const h = planeDisplayHeight;
+
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(snapToPixelGrid(x), snapToPixelGrid(y));
   ctx.rotate(angle);
-
-  const w = CONFIG.PLANE_WIDTH;
-  const h = CONFIG.PLANE_HEIGHT;
-  const white = "#f5f8fa";
-  const shade = "#c7d0d6";
-  const outline = "#1b2a38";
-
-  // זנב (מצויר ראשון, מתחת לגוף)
-  ctx.fillStyle = shade;
-  ctx.beginPath();
-  ctx.moveTo(-w / 2 + 2, -h / 2 + 2);
-  ctx.lineTo(-w / 2 - 8, -h);
-  ctx.lineTo(-w / 2 + 12, -h / 2 + 2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = outline;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // כנף
-  ctx.fillStyle = shade;
-  ctx.beginPath();
-  ctx.moveTo(-6, h / 2 - 4);
-  ctx.lineTo(-20, h + 6);
-  ctx.lineTo(4, h / 2 + 2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // גוף ראשי — מלבן שטוח עם חרטום משופע, לא אליפסה חלקה
-  ctx.fillStyle = white;
-  ctx.beginPath();
-  ctx.moveTo(-w / 2, -h / 2);
-  ctx.lineTo(w / 2 - 10, -h / 2);
-  ctx.lineTo(w / 2, 0);
-  ctx.lineTo(w / 2 - 10, h / 2);
-  ctx.lineTo(-w / 2, h / 2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // שורת חלונות תא הנוסעים
-  ctx.fillStyle = outline;
-  for (let i = -3; i <= 1; i++) {
-    ctx.fillRect(i * 8 - 2, -5, 5, 5);
-  }
-
-  // חלון תא הטייס — פאנל כהה נפרד, קרוב לחרטום
-  ctx.fillRect(12, -3, 6, 6);
-
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();
 }
 
-requestAnimationFrame(gameLoop);
+// --- אתחול: טוענים נכסים, ואז מתחילים את לולאת המשחק ---
+loadAssets(ASSET_MANIFEST)
+  .then(() => {
+    planeDisplayHeight = CONFIG.PLANE_DISPLAY_WIDTH * (assets.plane.naturalHeight / assets.plane.naturalWidth);
+    cityTileWidth = CONFIG.HEIGHT * (assets.backgroundCity.naturalWidth / assets.backgroundCity.naturalHeight);
+    loadingScreen.classList.add("hidden");
+    requestAnimationFrame(gameLoop);
+  })
+  .catch((err) => {
+    loadingScreen.querySelector(".loading-text").textContent = "שגיאה בטעינת המשחק";
+    console.error(err);
+  });
