@@ -4,28 +4,48 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Flappy Plane</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="game-wrap">
-    <canvas id="game" width="400" height="600"></canvas>
+  <div id="tv">
+    <div class="tv-frame">
+      <div class="tv-bezel">
+        <div id="game-wrap">
+          <canvas id="game" width="400" height="600"></canvas>
 
-    <div id="start-screen" class="overlay">
-      <h1>Flappy Plane</h1>
-      <p>אתה הקברניט. הבא את המטוס הביתה בשלום.</p>
-      <p class="hint">קליק / רווח / נגיעה כדי להמריא</p>
-      <button id="start-btn" class="main-btn">התחל משחק</button>
-    </div>
+          <div id="start-screen" class="overlay">
+            <h1 class="pixel-logo">FLAPPY<br>PLANE</h1>
+            <p>אתה הקברניט. הבא את המטוס הביתה בשלום.</p>
+            <p class="hint">קליק / רווח / נגיעה כדי להמריא</p>
+            <button id="start-btn" class="main-btn">התחל משחק</button>
+          </div>
 
-    <div id="gameover-screen" class="overlay hidden">
-      <h1>המטוס התרסק</h1>
-      <p>ניקוד: <span id="final-score">0</span></p>
-      <p>שיא: <span id="high-score">0</span></p>
-      <button id="retry-btn" class="main-btn">נסה שוב</button>
-    </div>
+          <div id="gameover-screen" class="overlay hidden">
+            <h1>המטוס התרסק</h1>
+            <p>ניקוד: <span id="final-score">0</span></p>
+            <p>שיא: <span id="high-score">0</span></p>
+            <button id="retry-btn" class="main-btn">נסה שוב</button>
+          </div>
 
-    <div id="hud" class="hidden">
-      <span id="score">0</span>
+          <div id="hud" class="hidden">
+            <span id="hud-score" class="pixel-text">SCORE: <span id="score">0</span></span>
+            <span id="hud-logo" class="pixel-text">FLAPPY<br>PLANE</span>
+          </div>
+
+          <div id="screen-glare"></div>
+          <div id="scanlines"></div>
+        </div>
+      </div>
+
+      <div class="tv-controls">
+        <button id="tv-start-btn" class="tv-physical-btn pixel-text" aria-label="התחל / נסה שוב">START</button>
+        <div class="tv-vents">
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
     </div>
   </div>
 

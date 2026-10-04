@@ -28,12 +28,14 @@ const CONFIG = {
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-// מסך חד (Retina/מובייל): מגדילים את מאגר הפיקסלים בלי לשנות קואורדינטות לוגיות.
-(function setupHiDPI() {
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = CONFIG.WIDTH * dpr;
-  canvas.height = CONFIG.HEIGHT * dpr;
-  ctx.scale(dpr, dpr);
+// מראה פיקסל-ארט רטרו: מציירים לתוך מאגר פיקסלים קטן בהרבה מגודל התצוגה,
+// ו-CSS (image-rendering: pixelated) מגדיל אותו בלי החלקה — בדיוק כמו מסך ישן.
+const PIXEL_SCALE = 0.35;
+(function setupPixelCanvas() {
+  canvas.width = Math.round(CONFIG.WIDTH * PIXEL_SCALE);
+  canvas.height = Math.round(CONFIG.HEIGHT * PIXEL_SCALE);
+  ctx.imageSmoothingEnabled = false;
+  ctx.scale(PIXEL_SCALE, PIXEL_SCALE);
 })();
 
 // מונע גלילה/זום של הדף במהלך משחק במובייל.
@@ -193,6 +195,13 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+// כפתור ה-START הפיזי על מארז הטלוויזיה — אותה פעולה כמו קליק על המסך.
+const tvStartBtn = document.getElementById("tv-start-btn");
+tvStartBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  handlePrimaryAction();
+});
+
 // --- לולאת משחק מבוססת delta time ---
 let lastTime = null;
 
@@ -210,10 +219,13 @@ function gameLoop(now) {
 }
 
 function update(dt, dtMs) {
-  updateSkyline(dt); // ממשיך לזוז גם במסכי פתיחה/סיום, לאפקט רקע חי
+  // רקעים ממשיכים לזוז גם במסכי פתיחה/סיום, לאפקט רקע חי
+  updateClouds(dt);
+  updateSkyline(dt);
   if (gameState !== STATE.PLAYING) return;
   updatePlanePhysics(dt);
   updateTowers(dt, dtMs);
+  updateRoad(dt);
   updateScore();
   if (checkCollisions()) {
     endGame();
@@ -260,6 +272,7 @@ function updatePlanePhysics(dt) {
 
 function render() {
   drawSky();
+  drawClouds();
   drawSkyline();
   drawTowers();
   drawGround();
@@ -383,13 +396,51 @@ function drawWindowGrid(x, y, w, h) {
   }
 }
 
-// --- רקע: שמיים ---
+// --- רקע: שמיים (פסים שטוחים בסגנון פיקסל-ארט, לא גרדיאנט חלק) ---
+const SKY_BANDS = [
+  { color: "#4fb8ea", upto: 0.35 },
+  { color: "#6ec6ef", upto: 0.65 },
+  { color: "#9adcf2", upto: 1.0 },
+];
+
 function drawSky() {
-  const g = ctx.createLinearGradient(0, 0, 0, CONFIG.HEIGHT);
-  g.addColorStop(0, "#6ec6ff");
-  g.addColorStop(1, "#cdeffd");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+  let prevY = 0;
+  for (const band of SKY_BANDS) {
+    const y = CONFIG.HEIGHT * band.upto;
+    ctx.fillStyle = band.color;
+    ctx.fillRect(0, prevY, CONFIG.WIDTH, y - prevY);
+    prevY = y;
+  }
+}
+
+// --- עננים פיקסליים, parallax איטי מאוד ---
+const CLOUDS = [
+  { x: 30, y: 70, scale: 1.1 },
+  { x: 230, y: 50, scale: 0.9 },
+  { x: 330, y: 140, scale: 1.3 },
+  { x: 120, y: 160, scale: 0.8 },
+];
+const CLOUD_TILE_WIDTH = CONFIG.WIDTH + 140;
+let cloudOffset = 0;
+
+function updateClouds(dt) {
+  cloudOffset += CONFIG.TOWER_SPEED * CONFIG.PARALLAX_FACTOR * 0.4 * dt;
+  cloudOffset %= CLOUD_TILE_WIDTH;
+}
+
+function drawClouds() {
+  ctx.fillStyle = "#ffffff";
+  for (const tileStart of [-cloudOffset, -cloudOffset + CLOUD_TILE_WIDTH]) {
+    for (const c of CLOUDS) {
+      drawPixelCloud(tileStart + c.x, c.y, c.scale);
+    }
+  }
+}
+
+function drawPixelCloud(x, y, scale) {
+  const u = 8 * scale; // יחידת "פיקסל" של הענן
+  ctx.fillRect(x - u, y, u * 4, u);
+  ctx.fillRect(x, y - u, u * 2.5, u);
 }
 
 // --- קו רקיע של תל אביב, זז לאט יותר מהמגדלים (parallax) ---
@@ -415,7 +466,7 @@ function updateSkyline(dt) {
 function drawSkyline() {
   const baseY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
   ctx.save();
-  ctx.fillStyle = "rgba(60, 94, 128, 0.55)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
   for (const tileStart of [-skylineOffset, -skylineOffset + SKYLINE_TILE_WIDTH]) {
     for (const b of SKYLINE_BUILDINGS) {
       drawSkylineBuilding(tileStart + b.x, baseY, b.w, b.h, b.shape);
@@ -444,16 +495,64 @@ function drawSkylineBuilding(x, baseY, w, h, shape) {
   ctx.fill();
 }
 
-// --- רצפה ---
+// --- כביש בתחתית המסך (במקום רצפת אדמה), עם מכוניות פיקסליות חולפות ---
 function drawGround() {
   const y = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
-  ctx.fillStyle = "#8d6e4a";
+  ctx.fillStyle = "#3a3a3e";
   ctx.fillRect(0, y, CONFIG.WIDTH, CONFIG.GROUND_HEIGHT);
-  ctx.fillStyle = "#6b4f33";
+  ctx.fillStyle = "#2a2a2d";
   ctx.fillRect(0, y, CONFIG.WIDTH, 6);
+
+  // פס הפרדה מקווקו, זז במהירות המגדלים (שכבת קדמה)
+  const dashY = y + CONFIG.GROUND_HEIGHT / 2 - 2;
+  ctx.fillStyle = "#f2c94c";
+  const dashWidth = 16;
+  const dashGap = 14;
+  const start = -(roadOffset % (dashWidth + dashGap));
+  for (let x = start; x < CONFIG.WIDTH; x += dashWidth + dashGap) {
+    ctx.fillRect(x, dashY, dashWidth, 4);
+  }
+
+  drawCars(y);
 }
 
-// --- מטוס נוסעים גנרי, מצויר בקוד ---
+const CARS = [
+  { x: 40, color: "#e94f4f" },
+  { x: 220, color: "#4f8de9" },
+  { x: 330, color: "#f2c94c" },
+];
+const CAR_TILE_WIDTH = CONFIG.WIDTH + 120;
+let roadOffset = 0;
+
+function updateRoad(dt) {
+  roadOffset += CONFIG.TOWER_SPEED * dt;
+  roadOffset %= 100000;
+}
+
+function drawCars(roadY) {
+  const base = -(roadOffset % CAR_TILE_WIDTH);
+  ctx.save();
+  for (const tileStart of [base, base + CAR_TILE_WIDTH]) {
+    for (const car of CARS) {
+      drawPixelCar(tileStart + car.x, roadY + CONFIG.GROUND_HEIGHT - 14, car.color);
+    }
+  }
+  ctx.restore();
+}
+
+function drawPixelCar(x, y, color) {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x - 1, y - 1, 24, 12);
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, 22, 10);
+  ctx.fillStyle = "#cdeffd";
+  ctx.fillRect(x + 5, y - 5, 12, 6);
+  ctx.fillStyle = "#1a1a1a";
+  ctx.fillRect(x + 2, y + 8, 5, 5);
+  ctx.fillRect(x + 15, y + 8, 5, 5);
+}
+
+// --- מטוס נוסעים גנרי, מצויר בקוד בסגנון פיקסל-ארט (ללא לוגו חברת תעופה) ---
 function drawPlane(x, y, angle = 0) {
   ctx.save();
   ctx.translate(x, y);
@@ -461,45 +560,50 @@ function drawPlane(x, y, angle = 0) {
 
   const w = CONFIG.PLANE_WIDTH;
   const h = CONFIG.PLANE_HEIGHT;
+  const outline = "#1b2a38";
 
-  // גוף המטוס
-  ctx.fillStyle = "#f5f5f5";
+  // זנב (מצויר ראשון, מתחת לגוף)
+  ctx.fillStyle = "#d8232a";
   ctx.beginPath();
-  ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+  ctx.moveTo(-w / 2 + 2, -h / 2 + 2);
+  ctx.lineTo(-w / 2 - 8, -h);
+  ctx.lineTo(-w / 2 + 12, -h / 2 + 2);
+  ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = "#b0b0b0";
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = outline;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   // כנף
-  ctx.fillStyle = "#d8232a";
+  ctx.fillStyle = "#c21f27";
   ctx.beginPath();
-  ctx.moveTo(-4, 2);
-  ctx.lineTo(-18, 16);
-  ctx.lineTo(2, 6);
+  ctx.moveTo(-6, h / 2 - 4);
+  ctx.lineTo(-20, h + 6);
+  ctx.lineTo(4, h / 2 + 2);
   ctx.closePath();
   ctx.fill();
+  ctx.stroke();
 
-  // זנב
+  // גוף ראשי — מלבן שטוח עם חרטום משופע, לא אליפסה חלקה
+  ctx.fillStyle = "#eef3f6";
   ctx.beginPath();
-  ctx.moveTo(-w / 2 + 4, -2);
-  ctx.lineTo(-w / 2 - 6, -16);
-  ctx.lineTo(-w / 2 + 10, -4);
+  ctx.moveTo(-w / 2, -h / 2);
+  ctx.lineTo(w / 2 - 10, -h / 2);
+  ctx.lineTo(w / 2, 0);
+  ctx.lineTo(w / 2 - 10, h / 2);
+  ctx.lineTo(-w / 2, h / 2);
   ctx.closePath();
   ctx.fill();
+  ctx.stroke();
 
-  // חרטום
-  ctx.fillStyle = "#e0e0e0";
-  ctx.beginPath();
-  ctx.ellipse(w / 2 - 4, 0, 6, h / 2 - 2, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // חלונות
+  // פס גוף כחול
   ctx.fillStyle = "#2b6cb0";
-  for (let i = -1; i <= 2; i++) {
-    ctx.beginPath();
-    ctx.arc(i * 9, -1, 2.3, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.fillRect(-w / 2, 3, w - 6, 5);
+
+  // שורת חלונות מרובעים
+  ctx.fillStyle = "#1b2a38";
+  for (let i = -3; i <= 1; i++) {
+    ctx.fillRect(i * 8 - 2, -5, 5, 5);
   }
 
   ctx.restore();
