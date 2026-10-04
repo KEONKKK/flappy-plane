@@ -41,6 +41,16 @@ const PIXEL_SCALE = 0.35;
 // מונע גלילה/זום של הדף במהלך משחק במובייל.
 document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 
+// רישום ה-service worker (PWA): שומר את קובצי המשחק במטמון כדי שהוא
+// יעבוד גם בלי אינטרנט. נתיב יחסי כדי לעבוד גם בתת-תיקייה (GitHub Pages).
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {
+      // כשלון ברישום לא אמור לעצור את המשחק — הוא ימשיך לעבוד בלי מצב אופליין.
+    });
+  });
+}
+
 // --- צלילים קצרים דרך Web Audio API, בלי קובצי אודיו ---
 let audioCtx = null;
 
