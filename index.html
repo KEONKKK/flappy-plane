@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Flappy Plane</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-wrap">
+    <canvas id="game" width="400" height="600"></canvas>
+
+    <div id="start-screen" class="overlay">
+      <h1>Flappy Plane</h1>
+      <p>אתה הקברניט. הבא את המטוס הביתה בשלום.</p>
+      <p class="hint">קליק / רווח / נגיעה כדי להמריא</p>
+      <button id="start-btn" class="main-btn">התחל משחק</button>
+    </div>
+
+    <div id="gameover-screen" class="overlay hidden">
+      <h1>המטוס התרסק</h1>
+      <p>ניקוד: <span id="final-score">0</span></p>
+      <p>שיא: <span id="high-score">0</span></p>
+      <button id="retry-btn" class="main-btn">נסה שוב</button>
+    </div>
+
+    <div id="hud" class="hidden">
+      <span id="score">0</span>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

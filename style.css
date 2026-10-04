@@ -1,0 +1,106 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: #0d1b2a;
+  font-family: "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+#game-wrap {
+  position: relative;
+  width: 400px;
+  height: 600px;
+  max-width: 100vw;
+  max-height: 100vh;
+  aspect-ratio: 400 / 600;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  background: #000;
+  touch-action: none;
+  user-select: none;
+}
+
+canvas#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  color: #fff;
+  background: rgba(10, 20, 35, 0.72);
+  padding: 20px;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.overlay h1 {
+  font-size: 2rem;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.overlay p {
+  font-size: 1.05rem;
+  opacity: 0.9;
+}
+
+.overlay .hint {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.main-btn {
+  margin-top: 10px;
+  padding: 12px 32px;
+  font-size: 1.1rem;
+  font-family: inherit;
+  font-weight: bold;
+  color: #0d1b2a;
+  background: #ffd166;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+  transition: transform 0.08s ease;
+}
+
+.main-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+#hud {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 2.6rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 2px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+
+#hud.hidden {
+  display: none;
+}
