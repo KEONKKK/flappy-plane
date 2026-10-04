@@ -19,8 +19,9 @@ const CONFIG = {
   GROUND_HEIGHT: 40,      // גובה קו הרצפה (קולייז'ן בלבד — אין יותר ציור רצפה נפרד)
 
   PLANE_X: 110,                 // מיקום אופקי קבוע של המטוס
-  PLANE_DISPLAY_WIDTH: 68,      // 17% מרוחב אזור המשחק (400) — הגובה נגזר מיחס הרוחב-גובה של התמונה (ללא מתיחה)
-  PLANE_HITBOX_WIDTH_SCALE: 0.84,  // תיבת הפגיעה קטנה מהמלבן המלא של תמונת המטוס, באותו יחס כמו לפני ההגדלה
+  PLANE_DISPLAY_WIDTH: 68,      // 17% מרוחב אזור המשחק (400)
+  PLANE_DISPLAY_HEIGHT: 28,     // יחס רוחב-גובה קבוע (~2.45:1), כמו בעיצוב הווקטורי המקורי
+  PLANE_HITBOX_WIDTH_SCALE: 0.84,  // תיבת הפגיעה קטנה מהמלבן המלא של המטוס, באותו יחס כמו לפני ההגדלה
   PLANE_HITBOX_HEIGHT_SCALE: 0.55, // (הזנב/הכנף המחודדים לא נספרים כפגיעה)
   PLANE_TILT_UP_MAX: (-20 * Math.PI) / 180,   // הטיית אף מקסימלית למעלה: 20°
   PLANE_TILT_DOWN_MAX: (25 * Math.PI) / 180,  // הטיית אף מקסימלית למטה: 25°
@@ -61,9 +62,12 @@ if ("serviceWorker" in navigator) {
 }
 
 // --- מניפסט נכסים: טעינה מסודרת מראש, לפני תחילת המשחק ---
-// כל רכיב גרפי עתידי (רקעים נוספים, וכו') עובר דרך אותו מנגנון טעינה.
+// המטוס עצמו חזר להיות מצויר בקוד (ראו drawPlane) — ניסיון לחלץ אותו
+// מתמונת מקור והפוך אותו ללבן אחיד נתקל בכך שההצללה הדו-גונית המקורית
+// של הזנב/המנוע לא ניתנת להפרדה נקייה מ"חלונות" בסף בהירות פשוט, מה
+// שיצר תוצאה מנומרת. ציור וקטורי נותן שליטה מדויקת, בלי הפתעות. כל
+// רכיב גרפי אחר (רקעים נוספים וכו') עדיין עובר דרך אותו מנגנון טעינה.
 const ASSET_MANIFEST = {
-  plane: "assets/plane.png",
   backgroundCity: "assets/background-city.png",
 };
 const assets = {};
@@ -218,10 +222,6 @@ const plane = {
   angle: 0,
 };
 
-// גובה התצוגה של המטוס בפועל — מחושב פעם אחת אחרי טעינת התמונה, לפי
-// יחס הרוחב-גובה האמיתי שלה (עוגן: CONFIG.PLANE_DISPLAY_WIDTH), כדי לא למתוח אותה.
-let planeDisplayHeight = 0;
-
 function resetPlane() {
   plane.y = CONFIG.HEIGHT / 2;
   plane.vy = 0;
@@ -353,7 +353,7 @@ function update(dt, dtMs) {
 // --- התנגשויות: רצפה, תקרה, מגדלים ---
 function checkCollisions() {
   const halfW = (CONFIG.PLANE_DISPLAY_WIDTH / 2) * CONFIG.PLANE_HITBOX_WIDTH_SCALE;
-  const halfH = (planeDisplayHeight / 2) * CONFIG.PLANE_HITBOX_HEIGHT_SCALE;
+  const halfH = (CONFIG.PLANE_DISPLAY_HEIGHT / 2) * CONFIG.PLANE_HITBOX_HEIGHT_SCALE;
   const top = plane.y - halfH;
   const bottom = plane.y + halfH;
   const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
@@ -565,27 +565,75 @@ function drawBackgroundCity() {
   }
 }
 
-// --- מטוס נוסעים — תמונה אמיתית (assets/plane.png), לא צורות וקטוריות ---
-// גודל ויחס הרוחב-גובה נשמרים מהתמונה (ללא מתיחה); הסיבוב סביב מרכז המטוס;
-// המיקום מעוגל לרשת הפיקסלים האמיתית כדי למנוע רעידות/טשטוש תת-פיקסל.
-function drawPlane(x, y, angle = 0) {
-  const img = assets.plane;
-  if (!img || planeDisplayHeight <= 0) return;
+// --- מטוס נוסעים — לבן אחיד, מצויר בקוד (ללא הצללה, ללא צבעים נוספים) ---
+// כל צורה (גוף/זנב/כנף) מצוירת פעמיים לפני המילוי: קודם הילה בהירה רחבה,
+// ואז קו מתאר כהה צר יותר מעליה — כך שנשאר טבעת הילה דקה מחוץ לקו המתאר,
+// בדיוק כמו באפקט שהיה אפוי לתוך קובץ התמונה, רק שעכשיו זה נגזר בזמן
+// אמת מהצורה עצמה. הסיבוב סביב מרכז המטוס; המיקום מעוגל לרשת הפיקסלים
+// האמיתית כדי למנוע רעידות/טשטוש תת-פיקסל.
+const PLANE_WHITE = "#f8fafc";
+const PLANE_OUTLINE = "#1b2a38";
+const PLANE_HALO = "#f5f8fa";
 
+function strokeAndFillShape(path) {
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = PLANE_HALO;
+  ctx.lineWidth = 6;
+  ctx.stroke(path);
+  ctx.strokeStyle = PLANE_OUTLINE;
+  ctx.lineWidth = 4;
+  ctx.stroke(path);
+  ctx.fillStyle = PLANE_WHITE;
+  ctx.fill(path);
+}
+
+function drawPlane(x, y, angle = 0) {
   const w = CONFIG.PLANE_DISPLAY_WIDTH;
-  const h = planeDisplayHeight;
+  const h = CONFIG.PLANE_DISPLAY_HEIGHT;
 
   ctx.save();
   ctx.translate(snapToPixelGrid(x), snapToPixelGrid(y));
   ctx.rotate(angle);
-  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+
+  // זנב (מצויר ראשון, מתחת לגוף)
+  const tail = new Path2D();
+  tail.moveTo(-w / 2 + 2, -h / 2 + 2);
+  tail.lineTo(-w / 2 - 8, -h);
+  tail.lineTo(-w / 2 + 12, -h / 2 + 2);
+  tail.closePath();
+  strokeAndFillShape(tail);
+
+  // כנף
+  const wing = new Path2D();
+  wing.moveTo(-6, h / 2 - 4);
+  wing.lineTo(-20, h + 6);
+  wing.lineTo(4, h / 2 + 2);
+  wing.closePath();
+  strokeAndFillShape(wing);
+
+  // גוף ראשי — משושה מוארך עם חרטום מחודד ימינה
+  const body = new Path2D();
+  body.moveTo(-w / 2, -h / 2);
+  body.lineTo(w / 2 - 10, -h / 2);
+  body.lineTo(w / 2, 0);
+  body.lineTo(w / 2 - 10, h / 2);
+  body.lineTo(-w / 2, h / 2);
+  body.closePath();
+  strokeAndFillShape(body);
+
+  // שורת חלונות תא הנוסעים + חלון תא הטייס — כהים, לא "צבע" אלא פרט תפקודי
+  ctx.fillStyle = PLANE_OUTLINE;
+  for (let i = -3; i <= 1; i++) {
+    ctx.fillRect(i * 8 - 2, -5, 5, 5);
+  }
+  ctx.fillRect(12, -3, 6, 6);
+
   ctx.restore();
 }
 
 // --- אתחול: טוענים נכסים, ואז מתחילים את לולאת המשחק ---
 loadAssets(ASSET_MANIFEST)
   .then(() => {
-    planeDisplayHeight = CONFIG.PLANE_DISPLAY_WIDTH * (assets.plane.naturalHeight / assets.plane.naturalWidth);
     cityTileWidth = CONFIG.HEIGHT * (assets.backgroundCity.naturalWidth / assets.backgroundCity.naturalHeight);
     loadingScreen.classList.add("hidden");
     requestAnimationFrame(gameLoop);
