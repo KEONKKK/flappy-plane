@@ -21,10 +21,68 @@ const CONFIG = {
   PLANE_X: 110,           // מיקום אופקי קבוע של המטוס
   PLANE_WIDTH: 54,
   PLANE_HEIGHT: 22,
+
+  PARALLAX_FACTOR: 0.35,  // קו הרקיע זז ביחס הזה ממהירות המגדלים
 };
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+
+// מסך חד (Retina/מובייל): מגדילים את מאגר הפיקסלים בלי לשנות קואורדינטות לוגיות.
+(function setupHiDPI() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = CONFIG.WIDTH * dpr;
+  canvas.height = CONFIG.HEIGHT * dpr;
+  ctx.scale(dpr, dpr);
+})();
+
+// מונע גלילה/זום של הדף במהלך משחק במובייל.
+document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
+
+// --- צלילים קצרים דרך Web Audio API, בלי קובצי אודיו ---
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+  }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+  return audioCtx;
+}
+
+function playTone(freqStart, freqEnd, duration, type, volume) {
+  const ac = getAudioCtx();
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  const t0 = ac.currentTime;
+
+  osc.type = type;
+  osc.frequency.setValueAtTime(freqStart, t0);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(freqEnd, 1), t0 + duration);
+
+  gain.gain.setValueAtTime(volume, t0);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+
+  osc.connect(gain);
+  gain.connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration);
+}
+
+function playFlapSound() {
+  playTone(380, 620, 0.09, "square", 0.1);
+}
+
+function playScoreSound() {
+  playTone(700, 1050, 0.14, "sine", 0.16);
+}
+
+function playCrashSound() {
+  playTone(200, 40, 0.4, "sawtooth", 0.2);
+}
 
 // --- מצבי משחק ---
 const STATE = { START: "start", PLAYING: "playing", GAMEOVER: "gameover" };
@@ -65,6 +123,7 @@ function updateScore() {
       t.passed = true;
       score++;
       scoreEl.textContent = String(score);
+      playScoreSound();
     }
   }
 }
@@ -80,6 +139,7 @@ function startGame() {
 
 function endGame() {
   gameState = STATE.GAMEOVER;
+  playCrashSound();
   saveHighScoreIfNeeded(score);
   finalScoreEl.textContent = String(score);
   highScoreEl.textContent = String(getHighScore());
@@ -106,6 +166,7 @@ function resetPlane() {
 
 function flap() {
   plane.vy = CONFIG.JUMP_FORCE;
+  playFlapSound();
 }
 
 // --- קלט: קליק, מקש רווח, נגיעה — פועל לפי מצב המשחק הנוכחי ---
@@ -149,6 +210,7 @@ function gameLoop(now) {
 }
 
 function update(dt, dtMs) {
+  updateSkyline(dt); // ממשיך לזוז גם במסכי פתיחה/סיום, לאפקט רקע חי
   if (gameState !== STATE.PLAYING) return;
   updatePlanePhysics(dt);
   updateTowers(dt, dtMs);
@@ -198,6 +260,7 @@ function updatePlanePhysics(dt) {
 
 function render() {
   drawSky();
+  drawSkyline();
   drawTowers();
   drawGround();
   drawPlane(plane.x, plane.y, plane.angle);
@@ -327,6 +390,58 @@ function drawSky() {
   g.addColorStop(1, "#cdeffd");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+}
+
+// --- קו רקיע של תל אביב, זז לאט יותר מהמגדלים (parallax) ---
+const SKYLINE_TILE_WIDTH = CONFIG.WIDTH;
+const SKYLINE_BUILDINGS = [
+  { x: 10, w: 40, h: 70, shape: "rect" },
+  { x: 55, w: 36, h: 100, shape: "round" },
+  { x: 100, w: 30, h: 60, shape: "rect" },
+  { x: 140, w: 44, h: 120, shape: "triangle" },
+  { x: 195, w: 34, h: 80, shape: "rect" },
+  { x: 240, w: 38, h: 95, shape: "round" },
+  { x: 290, w: 28, h: 65, shape: "rect" },
+  { x: 330, w: 42, h: 110, shape: "triangle" },
+  { x: 380, w: 20, h: 55, shape: "rect" },
+];
+let skylineOffset = 0;
+
+function updateSkyline(dt) {
+  skylineOffset += CONFIG.TOWER_SPEED * CONFIG.PARALLAX_FACTOR * dt;
+  skylineOffset %= SKYLINE_TILE_WIDTH;
+}
+
+function drawSkyline() {
+  const baseY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
+  ctx.save();
+  ctx.fillStyle = "rgba(60, 94, 128, 0.55)";
+  for (const tileStart of [-skylineOffset, -skylineOffset + SKYLINE_TILE_WIDTH]) {
+    for (const b of SKYLINE_BUILDINGS) {
+      drawSkylineBuilding(tileStart + b.x, baseY, b.w, b.h, b.shape);
+    }
+  }
+  ctx.restore();
+}
+
+function drawSkylineBuilding(x, baseY, w, h, shape) {
+  const top = baseY - h;
+  ctx.beginPath();
+  if (shape === "round") {
+    const r = w / 2;
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x, top + r);
+    ctx.arc(x + r, top + r, r, Math.PI, 2 * Math.PI, false);
+    ctx.lineTo(x + w, baseY);
+  } else if (shape === "triangle") {
+    ctx.moveTo(x, baseY);
+    ctx.lineTo(x + w / 2, top);
+    ctx.lineTo(x + w, baseY);
+  } else {
+    ctx.rect(x, top, w, h);
+  }
+  ctx.closePath();
+  ctx.fill();
 }
 
 // --- רצפה ---
