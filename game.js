@@ -26,6 +26,39 @@ const CONFIG = {
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
+// --- מצב המטוס ---
+const plane = {
+  x: CONFIG.PLANE_X,
+  y: CONFIG.HEIGHT / 2,
+  vy: 0,
+  angle: 0,
+};
+
+function resetPlane() {
+  plane.y = CONFIG.HEIGHT / 2;
+  plane.vy = 0;
+  plane.angle = 0;
+}
+
+function flap() {
+  plane.vy = CONFIG.JUMP_FORCE;
+}
+
+// --- קלט: קליק, מקש רווח, נגיעה ---
+function onFlapInput(e) {
+  e.preventDefault();
+  flap();
+}
+
+canvas.addEventListener("mousedown", onFlapInput);
+canvas.addEventListener("touchstart", onFlapInput, { passive: false });
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    e.preventDefault();
+    flap();
+  }
+});
+
 // --- לולאת משחק מבוססת delta time ---
 let lastTime = null;
 
@@ -43,13 +76,24 @@ function gameLoop(now) {
 }
 
 function update(dt) {
-  // ייתמלא בשלבים הבאים (פיזיקת מטוס, מגדלים וכו')
+  updatePlanePhysics(dt);
+}
+
+function updatePlanePhysics(dt) {
+  plane.vy += CONFIG.GRAVITY * dt;
+  plane.vy = Math.max(CONFIG.MAX_RISE_SPEED, Math.min(plane.vy, CONFIG.MAX_FALL_SPEED));
+  plane.y += plane.vy * dt;
+
+  // הטיית האף: עולה כשמטפסים, צונחת כשנופלים, עם ריכוך לתנועה חלקה
+  const targetAngle = Math.max(-0.5, Math.min(0.9, plane.vy / 10));
+  const ease = 1 - Math.pow(1 - 0.25, dt);
+  plane.angle += (targetAngle - plane.angle) * ease;
 }
 
 function render() {
   drawSky();
   drawGround();
-  drawPlane(CONFIG.PLANE_X, CONFIG.HEIGHT / 2);
+  drawPlane(plane.x, plane.y, plane.angle);
 }
 
 // --- רקע: שמיים ---
