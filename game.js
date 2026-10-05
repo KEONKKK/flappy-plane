@@ -100,6 +100,8 @@ if ("serviceWorker" in navigator) {
 // רכיב גרפי אחר (רקעים נוספים וכו') עדיין עובר דרך אותו מנגנון טעינה.
 const ASSET_MANIFEST = {
   backgroundCity: "assets/background-city.png",
+  towerRound: "assets/tower-round.png",
+  towerSquare: "assets/tower-square.png",
   towerTriangle: "assets/tower-triangle.png",
 };
 const assets = {};
@@ -401,43 +403,39 @@ function checkCollisions() {
     const gapTop = t.gapY - half;
     const gapBottom = t.gapY + half;
 
-    if (t.shape === "triangle") {
-      // תיבת פגיעה מצטמצמת לכיוון הקודקוד (ראו triangleHalfWidthAt) —
-      // מלבן קבוע היה פוסל את השחקן על אוויר ריק ליד החוד המחודד.
-      // בודקים רק בנקודה העמוקה ביותר של חפיפה אנכית עם כל חלק (הכי
-      // רחוקה מהפער) — מספיק כי הרוחב משתנה בצורה מונוטונית, אז אם
-      // הנקודה הרחבה ביותר בטווח לא חופפת אופקית, אף נקודה צרה יותר
-      // ממנה בטווח גם לא תחפוף.
-      const centerX = t.x + CONFIG.TOWER_WIDTH / 2;
-      if (top < gapTop) {
-        const triHalfW = triangleHalfWidthAt(gapTop - top, gapTop);
-        if (right > centerX - triHalfW && left < centerX + triHalfW) return true;
-      }
-      if (bottom > gapBottom) {
-        const triHalfW = triangleHalfWidthAt(bottom - gapBottom, floorY - gapBottom);
-        if (right > centerX - triHalfW && left < centerX + triHalfW) return true;
-      }
-    } else {
-      const towerLeft = t.x;
-      const towerRight = t.x + CONFIG.TOWER_WIDTH;
-      if (right > towerLeft && left < towerRight) {
-        if (top < gapTop || bottom > gapBottom) return true; // התנגשות במגדל
-      }
+    // תיבת הפגיעה נגזרת תמיד מאותו מודל שמשמש לציור (ראו
+    // towerSegmentHalfWidthAt / drawImageTowerSegment) — אף פעם לא
+    // TOWER_WIDTH קבוע — כדי שהיא תמיד תואמת בדיוק את מה שהשחקן רואה,
+    // לכל אחת משלוש הצורות. בודקים רק בנקודה העמוקה ביותר של חפיפה
+    // אנכית עם כל חלק (הכי רחוקה מהפער): מספיק כי הרוחב משתנה בצורה
+    // מונוטונית (קבוע לעגול/מרובע, גדל לכיוון הבסיס במשולש), אז אם
+    // הנקודה הרחבה ביותר בטווח לא חופפת אופקית, אף נקודה צרה יותר ממנה
+    // בטווח גם לא תחפוף.
+    const centerX = t.x + CONFIG.TOWER_WIDTH / 2;
+    if (top < gapTop) {
+      const halfWidth = towerSegmentHalfWidthAt(t.shape, gapTop - top, gapTop);
+      if (right > centerX - halfWidth && left < centerX + halfWidth) return true;
+    }
+    if (bottom > gapBottom) {
+      const halfWidth = towerSegmentHalfWidthAt(t.shape, bottom - gapBottom, floorY - gapBottom);
+      if (right > centerX - halfWidth && left < centerX + halfWidth) return true;
     }
   }
   return false;
 }
 
-// רוחב-חצי תיבת הפגיעה של מגדל המשולש במרחק נתון מקצה הפער (0 = בדיוק
-// על קצה הפער, שם התמונה היא הקודקוד החד), עבור קטע שגובהו הכולל הוא
-// segmentHeight. גדל ליניארית עד לרוחב המקסימלי של הקטע הזה (נגזר
-// מהיחס האמיתי של הקובץ, כמו ב-drawTriangleTowerSegment — התמונה כאן
-// ממלאת את כל הגובה, אז אין "קבוע גלובלי" אחד, כל קטע מחשב את הרוחב
-// המקסימלי שלו בעצמו) — כך שתיבת הפגיעה תמיד תואמת את מה שמוצג בפועל.
-function triangleHalfWidthAt(distFromGapEdge, segmentHeight) {
-  const img = assets.towerTriangle;
-  if (!img || segmentHeight <= 0) return CONFIG.TOWER_WIDTH / 2;
+// רוחב-חצי תיבת הפגיעה של קטע מגדל (עליון או תחתון) במרחק נתון מקצה
+// הפער (0 = בדיוק על קצה הפער), עבור קטע שגובהו הכולל הוא segmentHeight.
+// כל שלוש הצורות הן כיום תמונה שלמה שמתוחה לגובה הקטע (ראו
+// drawImageTowerSegment), כך שהרוחב המקסימלי תמיד נגזר מהיחס האמיתי של
+// קובץ התמונה — אין קבוע גלובלי אחד שמתאים לכולן. "משולש" מצטמצם
+// ליניארית לכיוון הקודקוד שבקצה הפער (TOWER_SHAPE_TAPERS); "עגול"
+// ו"מרובע" הם מלבן ברוחב קבוע לאורך כל הקטע.
+function towerSegmentHalfWidthAt(shape, distFromGapEdge, segmentHeight) {
+  const img = towerSegmentAsset(shape);
+  if (segmentHeight <= 0) return CONFIG.TOWER_WIDTH / 2;
   const maxDrawW = (img.naturalWidth / img.naturalHeight) * segmentHeight;
+  if (!TOWER_SHAPE_TAPERS[shape]) return maxDrawW / 2;
   const fraction = Math.min(1, Math.max(0, distFromGapEdge / segmentHeight));
   return (fraction * maxDrawW) / 2;
 }
@@ -469,10 +467,32 @@ function render() {
 }
 
 // --- מגדלים (בסגנון מגדלי עזריאלי: עגול / משולש / מרובע) ---
-// כל מגדל חדש מגריל את צורתו באקראי, בהסתברות שווה (שליש-שליש-שליש) —
-// לא מחזור קבוע כמו קודם. "משולש" הוא תמונה (ראו ASSET_MANIFEST /
-// drawTowerSegment); עגול ומרובע נשארים וקטוריים כמו תמיד.
+// כל מגדל הוא "טור" אחד — יחידה אטומה: אובייקט בודד שמחזיק גם את החלק
+// העליון וגם את החלק התחתון, עם שדה shape משותף יחיד (ראו spawnTower).
+// ה-shape מוגרל פעם אחת בלבד לכל טור; הציור וההתנגשות של שני החלקים
+// קוראים תמיד את אותו t.shape — אין הגרלה נפרדת לכל חלק, ולכן אין
+// אפשרות מבנית לכך שהעליון והתחתון ייצאו בצורות שונות. ההגרלה עצמה
+// אחידה לחלוטין: שלוש הצורות בהסתברות שווה של שליש כל אחת, בלי זיכרון
+// של הטור הקודם.
 const TOWER_SHAPES = ["round", "triangle", "square"];
+
+// כל שלוש הצורות הן כיום תמונה שלמה (לא וקטור) — ראו drawImageTowerSegment.
+// שני המפות הבאות הן מקור-האמת היחיד שמקשר shape לנכס/להתנהגות שלו;
+// גם הציור וגם חישוב תיבת הפגיעה (towerSegmentHalfWidthAt) קוראים מכאן,
+// כך שאי אפשר שהם "יתפצלו" לשתי מקורות מידע שונים.
+const TOWER_IMAGE_ASSET_KEY = { round: "towerRound", square: "towerSquare", triangle: "towerTriangle" };
+const TOWER_SHAPE_TAPERS = { round: false, square: false, triangle: true };
+
+// שולף את התמונה הטעונה עבור צורת-מגדל נתונה. זורק אם shape לא מוכר
+// או שהנכס שלו לא נטען — "מגן שפיות" שמוודא שלעולם לא נצייר (או נחשב
+// תיבת פגיעה) עבור צורה בלי נכס גרפי תואם במפורש.
+function towerSegmentAsset(shape) {
+  const key = TOWER_IMAGE_ASSET_KEY[shape];
+  const img = key && assets[key];
+  if (!img) throw new Error(`No image asset bound for tower shape "${shape}"`);
+  return img;
+}
+
 let towers = [];
 let towerSpawnTimer = 0;
 
@@ -488,6 +508,7 @@ function spawnTower() {
   const minGapY = margin + half;
   const maxGapY = floorY - margin - half;
   const gapY = minGapY + Math.random() * Math.max(0, maxGapY - minGapY);
+  // הגרלה יחידה לכל הטור (לא לכל חלק בנפרד) — ראו ההערה מעל TOWER_SHAPES.
   const shape = TOWER_SHAPES[Math.floor(Math.random() * TOWER_SHAPES.length)];
   towers.push({
     x: CONFIG.WIDTH,
@@ -510,8 +531,8 @@ function updateTowers(dt, dtMs) {
 }
 
 function drawTowers() {
-  // שכבת תמונת-המגדלים (המשולש) לא נדגמת-מחדש כל פריים כמו הרקע (לא
-  // ממלאת את כל השטח באטימות), ולכן צריכה ניקוי מפורש בכל פריים.
+  // שכבת תמונת-המגדלים לא נדגמת-מחדש כל פריים כמו הרקע (לא ממלאת את כל
+  // השטח באטימות), ולכן צריכה ניקוי מפורש בכל פריים.
   towerImagesCtx.clearRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
   for (const t of towers) {
     const half = CONFIG.TOWER_GAP / 2;
@@ -525,86 +546,44 @@ function drawTowers() {
   }
 }
 
-// צבעי המגדלים (סעיף 6): כהים ורוויים יותר מכל בניין שברקע (שעבר הקהיה
-// ברוויה/ניגודיות בנכס הרקע עצמו), עם קו מתאר באותו גוון כמו המטוס
-// (עקביות חזותית) וצל רך וצר בצד ימין לנפח — כך שגם במבט חטוף ברור
-// שזה מכשול ולא עוד בניין רקע. ראו design/SPEC.md, "היררכיית בהירות".
-const TOWER_FILL = "#3f5564";
-const TOWER_OUTLINE = "#1b2a38";
-const TOWER_SHADOW = "rgba(10, 18, 26, 0.32)";
-const TOWER_SHADOW_WIDTH = 7;
-const TOWER_WINDOW_COLOR = "#d9f2fb";
-
 // מצייר קטע מגדל אחד (חלק עליון תלוי מהתקרה, או חלק תחתון עולה מהרצפה).
+// שיוך נכס מחמיר: טוען אך ורק דרך towerSegmentAsset(shape) — מקור-האמת
+// היחיד שמקשר צורה לתמונה (ראו TOWER_IMAGE_ASSET_KEY) — כך שאין לשום
+// לוגיקת צד אפשרות "להחליף" תמונה לחלק אחד בלי לעבור דרך אותה מפה.
+// ההיפוך האנכי (ראו drawImageTowerSegment) נדרש **רק** לצורה שבאמת
+// מצטמצמת לכיוון קצה אחד (TOWER_SHAPE_TAPERS — כרגע רק "משולש"): שם
+// הקודקוד *חייב* להצביע לעבר הפער, אחרת רואים את הבסיס הרחב דווקא שם
+// (בדיוק הבאג שתוקן קודם). עגול/מרובע הם כמעט-סימטריים (גג/כיפה בקצה
+// אחד של הקובץ, בסיס בקצה השני, רוחב כמעט קבוע ביניהם) — **בלי** היפוך
+// הגג/הכיפה תמיד נופל בצד שפונה לתקרה/לרצפה בפועל (לא לפער), שזה
+// הכיוון הנכון מבחינה ארכיטקטונית. היפוך גורף לכל הצורות (כפי שהיה
+// לרגע קודם לתיקון הזה) שם את הכיפה דווקא על שפת הפער בחלק התלוי —
+// הפוך, זוהה ויזואלית ותוקן.
 function drawTowerSegment(x, yTop, height, w, shape, isHanging) {
   if (height <= 0) return;
-
-  if (shape === "triangle") {
-    drawTriangleTowerSegment(x, yTop, height, w, isHanging);
-    return;
-  }
-
-  const radius = w / 2;
-  const tipH = shape === "round" ? radius : 0;
-  const bodyTop = isHanging ? yTop : yTop + tipH;
-  const bodyBottom = isHanging ? yTop + height - tipH : yTop + height;
-  const bodyH = bodyBottom - bodyTop;
-
-  ctx.fillStyle = TOWER_FILL;
-  ctx.strokeStyle = TOWER_OUTLINE;
-  ctx.lineWidth = 2;
-
-  if (bodyH > 0) {
-    ctx.fillRect(x, bodyTop, w, bodyH);
-    drawWindowGrid(ctx, x, bodyTop, w, bodyH);
-    ctx.fillStyle = TOWER_SHADOW;
-    ctx.fillRect(x + w - TOWER_SHADOW_WIDTH, bodyTop, TOWER_SHADOW_WIDTH, bodyH);
-    ctx.strokeRect(x, bodyTop, w, bodyH);
-  }
-
-  ctx.fillStyle = TOWER_FILL;
-  if (shape === "round") {
-    ctx.beginPath();
-    if (isHanging) {
-      ctx.moveTo(x, bodyBottom);
-      ctx.arc(x + radius, bodyBottom, radius, Math.PI, 0, true);
-    } else {
-      ctx.moveTo(x, bodyTop);
-      ctx.arc(x + radius, bodyTop, radius, Math.PI, 2 * Math.PI, false);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  }
-  // מרובע: הגג כבר שטוח כחלק מהמלבן, אין צורך בקצה נוסף.
+  const shouldFlip = isHanging && TOWER_SHAPE_TAPERS[shape];
+  drawImageTowerSegment(towerSegmentAsset(shape), x, yTop, height, w, shouldFlip);
 }
 
-// מגדל "משולש" (מגדל עזריאלי המשולש) — לא וקטור, אלא תמונה שלמה מתוך
-// assets/tower-triangle.png (ראו ASSET_MANIFEST): מגדל אחד, רציף,
-// מקודקוד ועד בסיס — לא ניתן לפרק ל"גוף חוזר + קצה" כמו עגול/מרובע,
-// כי הרוחב משתנה בכל שורת פיקסלים (שום שורה לא "דומה" לשכנותיה).
-// **אין קיצוץ ואין "מילוי" בצבע אחיד** (גרסה קודמת מילאה שארית עם מלבן
-// אחיד + רשת חלונות כשהפער היה גבוה מהתמונה — נראה כמו "מלבן תקוע",
-// הוסר). במקום זה מגדילים/מקטינים את **התמונה השלמה** (לא פלח, לא
-// קיצוץ) כך שהגובה שלה יתאים **בדיוק** לגובה הפער שהוגרל — תמיד מגדל
-// שלם מקודקוד עד בסיס, בכל גודל פער, בלי שום עיוות (הרוחב נגזר
-// מהגובה לפי היחס האמיתי של הקובץ, לא נעול ל-TOWER_WIDTH). הקודקוד
-// נופל תמיד בדיוק על שפת הפער, והבסיס נופל תמיד בדיוק על הרצפה/תקרה —
-// אף פעם לא צף ואף פעם לא נגזר. ממורכז אופקית סביב קו-האמצע של עמודת
-// TOWER_WIDTH הרגילה, כדי להישאר מיושר עם שאר המגדלים. **פשרה מודעת**:
-// הרוחב בפועל משתנה בין מגדל למגדל (מוצר ברור של גובה הפער), ולכן גם
-// תיבת הפגיעה — ראו triangleHalfWidthAt(), שמקבלת את אותו גובה-פער
-// ומחשבת את הרוחב המקסימלי התואם בעצמה, לא קבוע גלובלי.
-// החלק התלוי מהתקרה (isHanging) מצויר *הפוך אנכית* (flip Y בלבד, לא X
-// — כדי לשמור על כיוון התאורה/חלונות), כך שהקודקוד נופל על שפת הפער
-// מלמעלה והבסיס נשען על התקרה.
-function drawTriangleTowerSegment(x, yTop, height, w, isHanging) {
-  const img = assets.towerTriangle;
+// כל מגדל (עגול/מרובע/משולש) הוא תמונה שלמה, רציפה, מקודקוד/גג ועד
+// בסיס — לא וקטור, ולא ניתן לפרק ל"גוף חוזר + קצה", כי הרוחב משתנה
+// בכל שורת פיקסלים (בפרט במשולש; בעגול/מרובע הרוחב קבוע אבל עדיין
+// הצילוט המלא נגזר מהקובץ). **אין קיצוץ ואין "מילוי" בצבע אחיד**: תמיד
+// מגדילים/מקטינים את **התמונה השלמה** כך שהגובה שלה יתאים **בדיוק**
+// לגובה הפער שהוגרל — תמיד מגדל שלם, בכל גודל פער, בלי שום עיוות
+// (הרוחב נגזר מהגובה לפי היחס האמיתי של קובץ התמונה, לא נעול ל-
+// TOWER_WIDTH). ממורכז אופקית סביב קו-האמצע של עמודת TOWER_WIDTH
+// הרגילה, כדי להישאר מיושר עם שאר המגדלים.
+// shouldFlip (מוחלט ע"י הקורא — ראו drawTowerSegment): כשדולק, מצייר
+// *הפוך אנכית* (flip Y בלבד, לא X — כדי לשמור על כיוון התאורה/חלונות)
+// סביב שפת הפער, כך שקצה-המקור y=0 (הקודקוד/גג) נופל תמיד בדיוק על
+// שפת הפער. כשכבוי, מצייר בכיוון הטבעי של הקובץ (קצה y=0 בראש הקטע).
+function drawImageTowerSegment(img, x, yTop, height, w, shouldFlip) {
   if (!img || height <= 0) return;
   const drawW = (img.naturalWidth / img.naturalHeight) * height;
   const drawX = x + (w - drawW) / 2;
 
-  if (isHanging) {
+  if (shouldFlip) {
     const gapEdgeY = yTop + height; // התחתית של הקטע הזה = שפת הפער
     towerImagesCtx.save();
     towerImagesCtx.translate(0, gapEdgeY);
@@ -613,21 +592,6 @@ function drawTriangleTowerSegment(x, yTop, height, w, isHanging) {
     towerImagesCtx.restore();
   } else {
     towerImagesCtx.drawImage(img, drawX, yTop, drawW, height);
-  }
-}
-
-// רשת חלונות על גוף המגדל. מקבל קונטקסט מפורש כי גם קנבס המשחק
-// הפיקסלי (עגול/מרובע) וגם שכבת תמונות המגדלים (מילוי המשולש) צריכים
-// אותה — ראו הקריאות בשני המקומות.
-function drawWindowGrid(targetCtx, x, y, w, h) {
-  const pad = 7;
-  const cell = 8;
-  const gap = 5;
-  targetCtx.fillStyle = TOWER_WINDOW_COLOR;
-  for (let wy = y + pad; wy <= y + h - pad - cell; wy += cell + gap) {
-    for (let wx = x + pad; wx <= x + w - pad - cell; wx += cell + gap) {
-      targetCtx.fillRect(wx, wy, cell, cell);
-    }
   }
 }
 

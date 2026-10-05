@@ -2,7 +2,7 @@
 // שהמשחק יעבוד גם בלי אינטרנט, ומתעדכן כשה-CACHE_VERSION משתנה.
 "use strict";
 
-const CACHE_VERSION = "v8";
+const CACHE_VERSION = "v9";
 const CACHE_NAME = `flappy-plane-${CACHE_VERSION}`;
 
 // רק קבצים מאותו מקור — קבצים חיצוניים (כמו גופן Google Fonts) נכנסים
@@ -15,6 +15,8 @@ const APP_SHELL = [
   "./game.js",
   "./manifest.json",
   "./assets/background-city.png",
+  "./assets/tower-round.png",
+  "./assets/tower-square.png",
   "./assets/tower-triangle.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
