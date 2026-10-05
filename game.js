@@ -410,11 +410,11 @@ function checkCollisions() {
       // ממנה בטווח גם לא תחפוף.
       const centerX = t.x + CONFIG.TOWER_WIDTH / 2;
       if (top < gapTop) {
-        const triHalfW = triangleHalfWidthAt(gapTop - top);
+        const triHalfW = triangleHalfWidthAt(gapTop - top, gapTop);
         if (right > centerX - triHalfW && left < centerX + triHalfW) return true;
       }
       if (bottom > gapBottom) {
-        const triHalfW = triangleHalfWidthAt(bottom - gapBottom);
+        const triHalfW = triangleHalfWidthAt(bottom - gapBottom, floorY - gapBottom);
         if (right > centerX - triHalfW && left < centerX + triHalfW) return true;
       }
     } else {
@@ -429,14 +429,17 @@ function checkCollisions() {
 }
 
 // רוחב-חצי תיבת הפגיעה של מגדל המשולש במרחק נתון מקצה הפער (0 = בדיוק
-// על קצה הפער, שם התמונה היא הקודקוד החד). גדל ליניארית עד לרוחב המלא
-// (TOWER_WIDTH) במרחק triangleDisplayHeight — בדיוק אותה הגיון כמו
-// הגזירה/המילוי בציור (drawTriangleTowerSegment), כך שתיבת הפגיעה
-// תמיד תואמת את מה שהשחקן רואה בפועל.
-function triangleHalfWidthAt(distFromGapEdge) {
-  if (triangleDisplayHeight <= 0) return CONFIG.TOWER_WIDTH / 2;
-  const fraction = Math.min(1, Math.max(0, distFromGapEdge / triangleDisplayHeight));
-  return (fraction * CONFIG.TOWER_WIDTH) / 2;
+// על קצה הפער, שם התמונה היא הקודקוד החד), עבור קטע שגובהו הכולל הוא
+// segmentHeight. גדל ליניארית עד לרוחב המקסימלי של הקטע הזה (נגזר
+// מהיחס האמיתי של הקובץ, כמו ב-drawTriangleTowerSegment — התמונה כאן
+// ממלאת את כל הגובה, אז אין "קבוע גלובלי" אחד, כל קטע מחשב את הרוחב
+// המקסימלי שלו בעצמו) — כך שתיבת הפגיעה תמיד תואמת את מה שמוצג בפועל.
+function triangleHalfWidthAt(distFromGapEdge, segmentHeight) {
+  const img = assets.towerTriangle;
+  if (!img || segmentHeight <= 0) return CONFIG.TOWER_WIDTH / 2;
+  const maxDrawW = (img.naturalWidth / img.naturalHeight) * segmentHeight;
+  const fraction = Math.min(1, Math.max(0, distFromGapEdge / segmentHeight));
+  return (fraction * maxDrawW) / 2;
 }
 
 function updatePlanePhysics(dt) {
@@ -472,9 +475,6 @@ function render() {
 const TOWER_SHAPES = ["round", "triangle", "square"];
 let towers = [];
 let towerSpawnTimer = 0;
-// גובה התצוגה "המלא" (לא מעוות) של תמונת המשולש, בפרופורציה האמיתית
-// שלה ברוחב TOWER_WIDTH — מחושב אחרי טעינת התמונה. ראו drawTriangleTowerSegment.
-let triangleDisplayHeight = 0;
 
 function resetTowers() {
   towers = [];
@@ -582,52 +582,37 @@ function drawTowerSegment(x, yTop, height, w, shape, isHanging) {
 // מגדל "משולש" (מגדל עזריאלי המשולש) — לא וקטור, אלא תמונה שלמה מתוך
 // assets/tower-triangle.png (ראו ASSET_MANIFEST): מגדל אחד, רציף,
 // מקודקוד ועד בסיס — לא ניתן לפרק ל"גוף חוזר + קצה" כמו עגול/מרובע,
-// כי הרוחב משתנה בכל שורת פיקסלים (שום שורה לא "דומה" לשכנותיה). לכן
-// במקום לגזור פלח שרירותי מתוך מגדל וירטואלי ארוך (כמו שהיה קודם —
-// בדיוק זה שיצר "עמוד גנרי קטוע" שלא נראה כמו שום דבר מזוהה), מציירים
-// תמיד את התמונה *בשלמותה* בפרופורציה האמיתית שלה (triangleDisplayHeight,
-// קבוע, לא תלוי בגובה הפער שהוגרל), **מעוגנת תמיד בקצה הפונה לפער** —
-// כך שהקודקוד החד תמיד נופל בדיוק על שפת הפער (המקום הקריטי לעין
-// ולמשחק), בלי שום עיוות/מתיחה. שני מצבים:
-//  - אם יש מספיק מקום (height >= triangleDisplayHeight): התמונה נגמרת
-//    לפני קצה המסך/הרצפה, והשארית מתמלאת בצבע גוף אחיד + רשת חלונות —
-//    בדיוק כמו ה"גוף" של עגול/מרובע, לשמירה על מגדל *שלם* שמגיע עד
-//    הרצפה/תקרה (לא צף/נקטע באוויר).
-//  - אם אין מספיק מקום (height < triangleDisplayHeight): גוזרים את
-//    התמונה החל מהקודקוד (תמיד שלם וחד), והבסיס נחתך/מוסתר מחוץ לגבולות
-//    המקטע — בלי שום מתיחה אופקית/אנכית של מה שכן מוצג.
+// כי הרוחב משתנה בכל שורת פיקסלים (שום שורה לא "דומה" לשכנותיה).
+// **אין קיצוץ ואין "מילוי" בצבע אחיד** (גרסה קודמת מילאה שארית עם מלבן
+// אחיד + רשת חלונות כשהפער היה גבוה מהתמונה — נראה כמו "מלבן תקוע",
+// הוסר). במקום זה מגדילים/מקטינים את **התמונה השלמה** (לא פלח, לא
+// קיצוץ) כך שהגובה שלה יתאים **בדיוק** לגובה הפער שהוגרל — תמיד מגדל
+// שלם מקודקוד עד בסיס, בכל גודל פער, בלי שום עיוות (הרוחב נגזר
+// מהגובה לפי היחס האמיתי של הקובץ, לא נעול ל-TOWER_WIDTH). הקודקוד
+// נופל תמיד בדיוק על שפת הפער, והבסיס נופל תמיד בדיוק על הרצפה/תקרה —
+// אף פעם לא צף ואף פעם לא נגזר. ממורכז אופקית סביב קו-האמצע של עמודת
+// TOWER_WIDTH הרגילה, כדי להישאר מיושר עם שאר המגדלים. **פשרה מודעת**:
+// הרוחב בפועל משתנה בין מגדל למגדל (מוצר ברור של גובה הפער), ולכן גם
+// תיבת הפגיעה — ראו triangleHalfWidthAt(), שמקבלת את אותו גובה-פער
+// ומחשבת את הרוחב המקסימלי התואם בעצמה, לא קבוע גלובלי.
 // החלק התלוי מהתקרה (isHanging) מצויר *הפוך אנכית* (flip Y בלבד, לא X
-// — כדי לשמור על כיוון התאורה/חלונות), כך שהקודקוד שוב נופל בדיוק על
-// שפת הפער, הפעם מלמעלה. ראו triangleHalfWidthAt() לתיבת הפגיעה התואמת.
+// — כדי לשמור על כיוון התאורה/חלונות), כך שהקודקוד נופל על שפת הפער
+// מלמעלה והבסיס נשען על התקרה.
 function drawTriangleTowerSegment(x, yTop, height, w, isHanging) {
   const img = assets.towerTriangle;
-  if (!img || triangleDisplayHeight <= 0) return;
-  const imgH = triangleDisplayHeight;
-  const drawH = Math.min(imgH, height);
-  const srcH = (drawH / imgH) * img.naturalHeight;
+  if (!img || height <= 0) return;
+  const drawW = (img.naturalWidth / img.naturalHeight) * height;
+  const drawX = x + (w - drawW) / 2;
 
   if (isHanging) {
     const gapEdgeY = yTop + height; // התחתית של הקטע הזה = שפת הפער
     towerImagesCtx.save();
     towerImagesCtx.translate(0, gapEdgeY);
     towerImagesCtx.scale(1, -1); // היפוך אנכי בלבד — לא אופקי
-    towerImagesCtx.drawImage(img, 0, 0, img.naturalWidth, srcH, x, 0, w, drawH);
+    towerImagesCtx.drawImage(img, drawX, 0, drawW, height);
     towerImagesCtx.restore();
-    if (height > imgH) {
-      const fillH = height - imgH; // מהתקרה (yTop) ועד שהתמונה מתחילה
-      towerImagesCtx.fillStyle = TOWER_FILL;
-      towerImagesCtx.fillRect(x, yTop, w, fillH);
-      drawWindowGrid(towerImagesCtx, x, yTop, w, fillH);
-    }
   } else {
-    towerImagesCtx.drawImage(img, 0, 0, img.naturalWidth, srcH, x, yTop, w, drawH);
-    if (height > imgH) {
-      const fillTop = yTop + imgH; // איפה שהתמונה נגמרת ועד הרצפה
-      const fillH = height - imgH;
-      towerImagesCtx.fillStyle = TOWER_FILL;
-      towerImagesCtx.fillRect(x, fillTop, w, fillH);
-      drawWindowGrid(towerImagesCtx, x, fillTop, w, fillH);
-    }
+    towerImagesCtx.drawImage(img, drawX, yTop, drawW, height);
   }
 }
 
@@ -752,8 +737,6 @@ function drawPlane(x, y, angle = 0) {
 loadAssets(ASSET_MANIFEST)
   .then(() => {
     cityTileWidth = CONFIG.HEIGHT * (assets.backgroundCity.naturalWidth / assets.backgroundCity.naturalHeight);
-    triangleDisplayHeight =
-      CONFIG.TOWER_WIDTH * (assets.towerTriangle.naturalHeight / assets.towerTriangle.naturalWidth);
     loadingScreen.classList.add("hidden");
     requestAnimationFrame(gameLoop);
   })
