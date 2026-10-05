@@ -109,7 +109,6 @@ const ASSET_MANIFEST = {
   towerRound: "assets/tower-round.png",
   towerSquare: "assets/tower-square.png",
   towerTriangle: "assets/tower-triangle.png",
-  towerFill: "assets/tower-fill.png",
 };
 const assets = {};
 
@@ -420,11 +419,11 @@ function checkCollisions() {
     // בטווח גם לא תחפוף.
     const centerX = t.x + CONFIG.TOWER_WIDTH / 2;
     if (top < gapTop) {
-      const halfWidth = towerSegmentHalfWidthAt(t.topShape, gapTop - top, gapTop);
+      const halfWidth = towerSegmentHalfWidthAt(t.topShape, gapTop - top, gapTop, true);
       if (right > centerX - halfWidth && left < centerX + halfWidth) return true;
     }
     if (bottom > gapBottom) {
-      const halfWidth = towerSegmentHalfWidthAt(t.bottomShape, bottom - gapBottom, floorY - gapBottom);
+      const halfWidth = towerSegmentHalfWidthAt(t.bottomShape, bottom - gapBottom, floorY - gapBottom, false);
       if (right > centerX - halfWidth && left < centerX + halfWidth) return true;
     }
   }
@@ -433,23 +432,20 @@ function checkCollisions() {
 
 // רוחב-חצי תיבת הפגיעה של קטע מגדל (עליון או תחתון) במרחק נתון מקצה
 // הפער (0 = בדיוק על קצה הפער), עבור קטע שגובהו הכולל הוא segmentHeight.
-// "משולש" מצטמצם ליניארית לכיוון הקודקוד שבקצה הפער, מתוך התמונה השלמה
-// שמתוחה לגובה הקטע (ראו drawImageTowerSegment) — ללא שינוי. "עגול"
-// ו"מרובע" הם מעכשיו תמיד ברוחב הקבוע TOWER_WIDTH (ראו drawCappedFillSegment
-// — הכיפה בגודל קבוע, הגוף ממולא ב-FILL ברוחב זהה), **חוץ** ממקרה הקצה
-// שבו הפער כל כך קטן שאפילו הכיפה לבדה (towerCapDrawHeight) לא נכנסת —
-// שם היא מתכווצת פרופורציונלית (לא נמתחת, רק מוקטנת כולה) כדי להיכנס,
-// והרוחב קטן בהתאם. חייב לנבוע מאותו חישוב קנה-מידה בדיוק כמו הציור,
-// אחרת התיבה לא תואמת את מה שבאמת מוצג.
-function towerSegmentHalfWidthAt(shape, distFromGapEdge, segmentHeight) {
+// כל שלוש הצורות הן תמונה שלמה שמתוחה לגובה הקטע (ראו drawImageTowerSegment),
+// כך שהרוחב המקסימלי תמיד נגזר מהיחס האמיתי של קובץ התמונה — אין קבוע
+// גלובלי אחד שמתאים לכולן. "משולש" מצטמצם ליניארית לכיוון הקודקוד
+// שבקצה הפער (TOWER_SHAPE_TAPERS); "עגול" ו"מרובע" הם מלבן ברוחב קבוע
+// לאורך כל הקטע. isHanging חייב להגיע זהה למה שהועבר ל-drawTowerSegment
+// עבור אותו קטע בדיוק — אחרת הרוחב כאן (מחושב מ-towerSourceHeight) לא
+// יתאים למה שבאמת מצויר, כי החלק התלוי של עגול/מרובע מצויר קצת יותר צר
+// (TOWER_HANGING_BASE_CROP).
+function towerSegmentHalfWidthAt(shape, distFromGapEdge, segmentHeight, isHanging) {
   const img = towerSegmentAsset(shape);
   if (segmentHeight <= 0) return CONFIG.TOWER_WIDTH / 2;
-  if (!TOWER_SHAPE_TAPERS[shape]) {
-    const capDrawH = towerCapDrawHeight(img);
-    const scale = Math.min(1, segmentHeight / capDrawH);
-    return (CONFIG.TOWER_WIDTH * scale) / 2;
-  }
-  const maxDrawW = (img.naturalWidth / img.naturalHeight) * segmentHeight;
+  const srcHeight = towerSourceHeight(shape, isHanging);
+  const maxDrawW = (img.naturalWidth / srcHeight) * segmentHeight;
+  if (!TOWER_SHAPE_TAPERS[shape]) return maxDrawW / 2;
   const fraction = Math.min(1, Math.max(0, distFromGapEdge / segmentHeight));
   return (fraction * maxDrawW) / 2;
 }
@@ -497,24 +493,30 @@ const TOWER_SHAPES = ["round", "triangle", "square"];
 const TOWER_IMAGE_ASSET_KEY = { round: "towerRound", square: "towerSquare", triangle: "towerTriangle" };
 const TOWER_SHAPE_TAPERS = { round: false, square: false, triangle: true };
 
-// עגול/מרובע: רק החלק המזוהה בראש הקובץ (הכיפה/הגג — ראו TOWER_CAP_FRACTION)
-// מצויר מתוך תמונת המגדל המקורית, בגודל קבוע (לא נמתח לפי גובה הפער).
-// כל מה שמתחתיו מתמלא ב-assets.towerFill, נחזר אנכית ברוחב זהה — ראו
-// drawCappedFillSegment. זה מחליף גישה קודמת שמתחה את התמונה השלמה לכל
-// גובה הפער: בפער גדול זה היה מרחיב גם את הרוחב (נגזר מיחס הרוחב-גובה
-// של הקובץ) עד שהמגדל נראה שמן באופן לא טבעי, ובפער קטן־מהבסיס זה חשף
-// את פס-הבסיס השטוח של הקובץ מרחף באמצע האוויר בחלק התלוי מהתקרה (באג
-// קודם, נפרד). תמונת-המקור המלאה עדיין בשימוש **רק** למשולש (שלא נוגע
-// כאן כלל — ראו TOWER_SHAPE_TAPERS ו-drawTowerSegment).
-const TOWER_CAP_FRACTION = 0.1;
+// עגול/מרובע הם כמעט-סימטריים: כיפה/גג מזוהה בקצה אחד של הקובץ, בסיס
+// שטוח (עם פס-מתאר קצת בהיר יותר) מזוהה בקצה השני. לחלק התחתון (עולה
+// מהרצפה) זה נכון ארכיטקטונית — הבסיס שלו *אמור* להישען על הרצפה. אבל
+// לחלק העליון (תלוי מהתקרה) אין שום רצפה שהבסיס שלו יכול להישען עליה —
+// הציור ה"תמים" (תמונה שלמה, בלי קיצוץ) ממקם את אותו בסיס מזוהה דווקא
+// צמוד לשפת הפער, מרחף באוויר ומצביע לתוכו — זוהה ויזואלית כ"עיוות"
+// (לא היפוך הפוך-מציאות כמו שהיה עם המשולש פעם, אלא בסיס-בניין אמיתי
+// שפשוט לא שייך להיות שם). התיקון: רק לחלק התלוי (isHanging) של צורה
+// לא-מתקצרת, חותכים את האחוז התחתון הזה מתוך תמונת המקור *לפני* המתיחה
+// לגובה הקטע — כך שמה שנוגע בפועל בפער הוא המשך רשת חלונות רגילה (כאילו
+// הבניין נמשך למעלה, מעבר לתקרה, ונחתך שם סתם), והכיפה/הגג (שכן שייכים
+// להישאר, כי הם פונים לתקרה, לא לפער) נשארים שלמים. נבחר אמפירית מול
+// הנכסים בפועל — גדול מספיק כדי להעלים לגמרי את פס-הבסיס הבהיר, קטן
+// מספיק שלא לחתוך שום דבר מזוהה אחר (רשת החלונות אחידה כמעט לכל האורך).
+const TOWER_HANGING_BASE_CROP = 0.04;
 
-// גובה הכיפה/הגג בפיקסלים לוגיים, בקנה המידה שהופך את הרוחב שלה בדיוק
-// ל-TOWER_WIDTH (לא מעוות — אותו גורם קנה-מידה אחיד לשני הצירים). משמש
-// גם לציור (drawCappedFillSegment) וגם לתיבת הפגיעה (towerSegmentHalfWidthAt)
-// מאותו מקור-אמת יחיד (שתיהן מקבלות img, לא shape, כדי לא לטעון את
-// הנכס פעמיים), כדי ששתיהן לעולם לא יתפצלו זו מזו.
-function towerCapDrawHeight(img) {
-  return img.naturalHeight * TOWER_CAP_FRACTION * (CONFIG.TOWER_WIDTH / img.naturalWidth);
+// גובה תמונת-המקור בפועל שצריך להשתמש בו — לציור (drawImageTowerSegment)
+// ולתיבת הפגיעה (towerSegmentHalfWidthAt) כאחד, מאותו מקור-אמת יחיד: כל
+// גובה הקובץ, חוץ מהחלק התלוי של צורה לא-מתקצרת (עגול/מרובע), ששם חותכים
+// TOWER_HANGING_BASE_CROP מהתחתית (ראו ההערה למעלה).
+function towerSourceHeight(shape, isHanging) {
+  const img = towerSegmentAsset(shape);
+  const cropBase = isHanging && !TOWER_SHAPE_TAPERS[shape];
+  return cropBase ? img.naturalHeight * (1 - TOWER_HANGING_BASE_CROP) : img.naturalHeight;
 }
 
 // שולף את התמונה הטעונה עבור צורת-מגדל נתונה. זורק אם shape לא מוכר
@@ -593,32 +595,55 @@ function drawTowers() {
 }
 
 // מצייר קטע מגדל אחד (חלק עליון תלוי מהתקרה, או חלק תחתון עולה מהרצפה).
-// שני נתיבי ציור נפרדים לגמרי, לפי TOWER_SHAPE_TAPERS:
-//  - משולש (מצטמצם לקודקוד): תמונה שלמה אחת, נמתחת לגובה הקטע, עם היפוך
-//    אנכי כשתלוי מהתקרה כדי שהקודקוד תמיד יצביע לעבר הפער — ראו
-//    drawImageTowerSegment. ללא שינוי, ולא נוגע ב-FILL בכלל.
-//  - עגול/מרובע (כמעט-סימטריים): כיפה/גג קבוע-גודל מהתמונה המקורית +
-//    גוף שממולא ב-assets.towerFill — ראו drawCappedFillSegment.
+// שיוך נכס מחמיר: טוען אך ורק דרך towerSegmentAsset(shape) — מקור-האמת
+// היחיד שמקשר צורה לתמונה (ראו TOWER_IMAGE_ASSET_KEY) — כך שאין לשום
+// לוגיקת צד אפשרות "להחליף" תמונה לחלק אחד בלי לעבור דרך אותה מפה.
+// ההיפוך האנכי (ראו drawImageTowerSegment) נדרש **רק** לצורה שבאמת
+// מצטמצמת לכיוון קצה אחד (TOWER_SHAPE_TAPERS — כרגע רק "משולש"): שם
+// הקודקוד *חייב* להצביע לעבר הפער, אחרת רואים את הבסיס הרחב דווקא שם
+// (בדיוק הבאג שתוקן קודם). עגול/מרובע הם כמעט-סימטריים (גג/כיפה בקצה
+// אחד של הקובץ, בסיס בקצה השני, רוחב כמעט קבוע ביניהם) — **בלי** היפוך
+// הגג/הכיפה תמיד נופל בצד שפונה לתקרה/לרצפה בפועל (לא לפער), שזה
+// הכיוון הנכון מבחינה ארכיטקטונית. היפוך גורף לכל הצורות (כפי שהיה
+// לרגע קודם לתיקון הזה) שם את הכיפה דווקא על שפת הפער בחלק התלוי —
+// הפוך, זוהה ויזואלית ותוקן. **בעיה שנייה, נפרדת, שהתגלתה אחר כך**:
+// גם בלי היפוך, עדיין היה נראה לא טוב — כי הבסיס השטוח של עגול/מרובע
+// (הקצה השני, הלא-כיפתי, ראו TOWER_HANGING_BASE_CROP) נחת בדיוק על שפת
+// הפער בחלק התלוי, מרחף באוויר. towerSourceHeight פותר את זה בנפרד
+// מהיפוך — על ידי קיצוץ המקור, לא היפוכו.
+//
+// **הערה (חזרה לציור ישיר)**: נוסתה גם גישה של "כיפה בגודל קבוע + מילוי
+// חוזר (FILL.PNG) לשארית" — הוחזרה לאחור לבקשת המשתמש, כי זה שינה את
+// המראה המוכר של הקבצים המקוריים (tower-round.png / tower-square.png).
+// כל מגדל מצויר כעת שוב כתמונת-המקור השלמה שלו, בפרופורציות המקוריות,
+// ללא חיתוך/מילוי מלאכותי — רק הקיצוץ הדק (TOWER_HANGING_BASE_CROP)
+// שמתאר באג אחר, נפרד, ממשיך לחול.
 function drawTowerSegment(x, yTop, height, w, shape, isHanging) {
   if (height <= 0) return;
-  if (TOWER_SHAPE_TAPERS[shape]) {
-    drawImageTowerSegment(towerSegmentAsset(shape), x, yTop, height, w, isHanging);
-    return;
-  }
-  drawCappedFillSegment(towerSegmentAsset(shape), assets.towerFill, x, yTop, height);
+  const shouldFlip = isHanging && TOWER_SHAPE_TAPERS[shape];
+  const srcHeight = towerSourceHeight(shape, isHanging);
+  drawImageTowerSegment(towerSegmentAsset(shape), x, yTop, height, w, shouldFlip, srcHeight);
 }
 
-// משולש בלבד: תמונה שלמה, רציפה, מקודקוד ועד בסיס — לא ניתן לפרק
-// ל"גוף חוזר + קצה" כמו עגול/מרובע, כי הרוחב משתנה בכל שורת פיקסלים
-// (שום שורה לא "דומה" לשכנותיה) — FILL לא רלוונטי כאן. מגדילים/מקטינים
-// את התמונה השלמה כך שהגובה שלה יתאים בדיוק לגובה הפער שהוגרל — תמיד
-// מגדל שלם, בלי שום עיוות (הרוחב נגזר מהגובה לפי היחס האמיתי של הקובץ).
-// shouldFlip (=isHanging, כי רק צורה מתקצרת מגיעה לכאן): מצייר *הפוך
-// אנכית* (flip Y בלבד) סביב שפת הפער, כך שקצה-המקור y=0 (הקודקוד) נופל
-// תמיד בדיוק על שפת הפער. כשכבוי, מצייר בכיוון הטבעי (y=0 בראש הקטע).
-function drawImageTowerSegment(img, x, yTop, height, w, shouldFlip) {
+// כל מגדל (עגול/מרובע/משולש) הוא תמונה שלמה, רציפה, מקודקוד/גג ועד
+// בסיס — לא וקטור, ולא ניתן לפרק ל"גוף חוזר + קצה", כי הרוחב משתנה
+// בכל שורת פיקסלים (בפרט במשולש; בעגול/מרובע הרוחב קבוע אבל עדיין
+// הצילוט המלא נגזר מהקובץ). **כמעט בלי קיצוץ ובלי "מילוי" בצבע אחיד**:
+// כברירת מחדל מגדילים/מקטינים את **התמונה השלמה** (srcHeight — ראו
+// towerSourceHeight) כך שהגובה שלה יתאים **בדיוק** לגובה הפער שהוגרל —
+// תמיד מגדל שלם, בכל גודל פער, בלי שום עיוות (הרוחב נגזר מהגובה לפי
+// היחס האמיתי של קובץ התמונה, לא נעול ל-TOWER_WIDTH). ממורכז אופקית
+// סביב קו-האמצע של עמודת TOWER_WIDTH הרגילה, כדי להישאר מיושר עם שאר
+// המגדלים. החריג היחיד: srcHeight כבר מגיע מקוצר-מלמטה (לא כאן) עבור
+// החלק התלוי של עגול/מרובע — ראו TOWER_HANGING_BASE_CROP — כך שה-sy=0
+// עדיין נכון תמיד (חותכים רק מהתחתית של המקור, לא מההתחלה).
+// shouldFlip (מוחלט ע"י הקורא — ראו drawTowerSegment): כשדולק, מצייר
+// *הפוך אנכית* (flip Y בלבד, לא X — כדי לשמור על כיוון התאורה/חלונות)
+// סביב שפת הפער, כך שקצה-המקור y=0 (הקודקוד/גג) נופל תמיד בדיוק על
+// שפת הפער. כשכבוי, מצייר בכיוון הטבעי של הקובץ (קצה y=0 בראש הקטע).
+function drawImageTowerSegment(img, x, yTop, height, w, shouldFlip, srcHeight) {
   if (!img || height <= 0) return;
-  const drawW = (img.naturalWidth / img.naturalHeight) * height;
+  const drawW = (img.naturalWidth / srcHeight) * height;
   const drawX = x + (w - drawW) / 2;
 
   if (shouldFlip) {
@@ -626,60 +651,10 @@ function drawImageTowerSegment(img, x, yTop, height, w, shouldFlip) {
     towerImagesCtx.save();
     towerImagesCtx.translate(0, gapEdgeY);
     towerImagesCtx.scale(1, -1); // היפוך אנכי בלבד — לא אופקי
-    towerImagesCtx.drawImage(img, drawX, 0, drawW, height);
+    towerImagesCtx.drawImage(img, 0, 0, img.naturalWidth, srcHeight, drawX, 0, drawW, height);
     towerImagesCtx.restore();
   } else {
-    towerImagesCtx.drawImage(img, drawX, yTop, drawW, height);
-  }
-}
-
-// עגול/מרובע בלבד: "כיפה" (הפרוסה המזוהה בראש הקובץ — ראו
-// TOWER_CAP_FRACTION) בגודל *קבוע* (לא נגזר מגובה הפער), ואז ממלאים כל
-// מה שנשאר עד לקצה השני של הקטע ב-assets.towerFill, נחזר אנכית ברוחב
-// זהה בלי למתוח אותו אנכית (חוץ מהאריח האחרון, שנחתך — לא נמתח — כדי
-// להתאים בדיוק לשארית).
-//
-// *למה הכיפה תמיד בתחילת הקטע (yTop), בלי קשר ל-isHanging*: ב-drawTowers
-// החלק התלוי מהתקרה מצויר כ-(yTop=0, height=topHeight) — כלומר "תחילת
-// הקטע" היא ממש התקרה — והחלק התחתון מצויר כ-(yTop=gapBottom,
-// height=bottomHeight) — "תחילת הקטע" היא ממש שפת הפער. במילים אחרות,
-// "תחילת הקטע" כבר מייצגת תמיד את הגבול ה"אמיתי" (תקרה או פער, לפי
-// העניין) שאליו הכיפה צריכה להידבק, וההמשך (עד "סוף הקטע") הוא תמיד
-// לכיוון היעד השני (פער או רצפה). לכן אין צורך בפרמטר isHanging כאן
-// בכלל — זה מה שפותר גם את "הבסיס מרחף בפער" (הכיפה לעולם לא נוגעת
-// בבסיס-המקור של הקובץ, רק ב-FILL הגנרי) וגם את כיוון-הכיפה (היא תמיד
-// בצד שבאמת תקוע בקיר/תקרה/רצפה, לא בצד המשתנה של הפער).
-function drawCappedFillSegment(img, fillImg, x, yTop, height) {
-  if (!img || !fillImg || height <= 0) return;
-  const w = CONFIG.TOWER_WIDTH;
-  const capSrcH = img.naturalHeight * TOWER_CAP_FRACTION;
-  const capDrawHFull = towerCapDrawHeight(img);
-
-  if (capDrawHFull >= height) {
-    // קצה קיצון: אפילו הכיפה לבדה לא נכנסת בפער הקטן הזה. מקטינים את כל
-    // הכיפה פרופורציונלית (לא מותחים משהו אחר) כדי שתתאים — אין בכלל
-    // מקום ל-FILL. ראו towerSegmentHalfWidthAt לחישוב התיבה התואם.
-    const scale = height / capDrawHFull;
-    const drawW = w * scale;
-    const drawX = x + (w - drawW) / 2;
-    towerImagesCtx.drawImage(img, 0, 0, img.naturalWidth, capSrcH, drawX, yTop, drawW, height);
-    return;
-  }
-
-  // הכיפה בגודלה הטבעי (יחסית ל-TOWER_WIDTH), בלי שום עיוות.
-  towerImagesCtx.drawImage(img, 0, 0, img.naturalWidth, capSrcH, x, yTop, w, capDrawHFull);
-
-  // שאר הגובה: FILL.PNG נחזר אנכית, כל אריח בגודלו הטבעי (יחסית ל-
-  // TOWER_WIDTH) — לא נמתח. האריח האחרון נחתך (לא נמתח) כדי להתאים בדיוק
-  // לשארית שנותרה.
-  const tileDrawH = fillImg.naturalHeight * (w / fillImg.naturalWidth);
-  let drawnH = capDrawHFull;
-  while (drawnH < height - 0.01) {
-    const remaining = height - drawnH;
-    const thisTileH = Math.min(tileDrawH, remaining);
-    const srcH = fillImg.naturalHeight * (thisTileH / tileDrawH);
-    towerImagesCtx.drawImage(fillImg, 0, 0, fillImg.naturalWidth, srcH, x, yTop + drawnH, w, thisTileH);
-    drawnH += thisTileH;
+    towerImagesCtx.drawImage(img, 0, 0, img.naturalWidth, srcHeight, drawX, yTop, drawW, height);
   }
 }
 
