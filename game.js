@@ -42,6 +42,24 @@ const PIXEL_SCALE = 0.35;
   ctx.scale(PIXEL_SCALE, PIXEL_SCALE);
 })();
 
+// שכבת רקע נפרדת, ברזולוציה גבוהה והחלקה רגילה — ראו ההסבר ב-style.css
+// ליד canvas#bg-city. תמונת הרקע היא תצלום מפורט (חלונות, פרטים קטנים);
+// אם הייתה נדגמת מחדש יחד עם שאר המשחק לתוך מאגר ה-140×210 הזעיר למעלה
+// (כמו שהיה קודם), ה-downsample ב-nearest-neighbor היה יוצר רעש/טשטוש
+// (moiré) על כל פרט דחוס. 3.5x תואם את תקרת הרוחב של מסגרת הטלוויזיה
+// ב-CSS (700px) כך שגם במסך רטינה היחס בין פיקסלי המקור לפיקסלי המסך
+// נשאר קרוב ל-1:1 — חד בלי להיות בזבזני.
+const bgCanvas = document.getElementById("bg-city");
+const bgCtx = bgCanvas.getContext("2d");
+const BG_SCALE = 3.5;
+(function setupBackgroundCanvas() {
+  bgCanvas.width = Math.round(CONFIG.WIDTH * BG_SCALE);
+  bgCanvas.height = Math.round(CONFIG.HEIGHT * BG_SCALE);
+  bgCtx.imageSmoothingEnabled = true;
+  bgCtx.imageSmoothingQuality = "high";
+  bgCtx.scale(BG_SCALE, BG_SCALE);
+})();
+
 // מעגל קואורדינטה לוגית לרשת הפיקסלים האמיתית של מאגר הציור, כדי שהמטוס
 // (שזז כל פריים) ירד תמיד על גבול פיקסל שלם — בלי רעידות/טשטוש תת-פיקסל.
 function snapToPixelGrid(value) {
@@ -394,6 +412,10 @@ function updatePlanePhysics(dt) {
 }
 
 function render() {
+  // קנבס המשחק (ctx) כבר לא מצייר את הרקע (עבר לשכבה הנפרדת bg-city, ראו
+  // setupBackgroundCanvas למעלה) ולכן חייב ניקוי מפורש — בלי זה המגדלים
+  // והמטוס מהפריים הקודם היו נשארים על המסך.
+  ctx.clearRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
   drawBackgroundCity();
   drawTowers();
   drawPlane(plane.x, plane.y, plane.angle);
@@ -553,15 +575,15 @@ function drawBackgroundCity() {
 
   for (let x = startX, i = 0; x < CONFIG.WIDTH; x += tileW, i++) {
     const flipped = (Math.round((x - startX) / tileW) % 2) === 1;
-    ctx.save();
+    bgCtx.save();
     if (flipped) {
-      ctx.translate(x + tileW, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(img, 0, 0, tileW, displayH);
+      bgCtx.translate(x + tileW, 0);
+      bgCtx.scale(-1, 1);
+      bgCtx.drawImage(img, 0, 0, tileW, displayH);
     } else {
-      ctx.drawImage(img, x, 0, tileW, displayH);
+      bgCtx.drawImage(img, x, 0, tileW, displayH);
     }
-    ctx.restore();
+    bgCtx.restore();
   }
 }
 

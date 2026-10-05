@@ -81,11 +81,27 @@ html, body {
   box-shadow: 0 0 0 3px #0a0807; /* הוסרה הצללת ה-inset האחידה שהחשיכה את כל ארבעת השוליים */
 }
 
+/* שתי שכבות קנבס חופפות: הרקע (שכבה תחתונה, רזולוציה גבוהה + החלקה
+   רגילה — תמונה מצולמת, לא פיקסל-ארט) והמשחק (שכבה עליונה, מאגר פיקסלים
+   קטן בכוונה + pixelated — ראו ההסבר ב-game.js ליד PIXEL_SCALE). בלי
+   ההפרדה הזו, הרקע עצמו היה נדגם מחדש (downsample) יחד עם שאר המשחק
+   לתוך המאגר הזעיר של 140×210 פיקסלים אמיתיים — בדיוק מה שגרם לטשטוש/
+   לרעש (moiré) על חלונות הבניינים הצפופים ברקע. */
+canvas#bg-city,
 canvas#game {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
   touch-action: none;
+}
+
+canvas#bg-city {
+  image-rendering: auto; /* החלקה רגילה — זו תמונה, לא ספרייט פיקסל-ארט */
+}
+
+canvas#game {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
