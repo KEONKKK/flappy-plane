@@ -67,6 +67,14 @@ commit `2f7ea19`). היא נקראת ע"י `tools/run-regression.js` ברוח, �
   במיקום הקבוע שלו; `design/verify/plane/` — שלוש הטיות, עם/בלי תיבת
   פגיעה).
 
+## מסך פתיחה: ENTRANCE.gif (index.html + style.css + game.js)
+
+- **שלוש שכבות** בתוך `#start-screen`: `.entrance-bg` (אותו קובץ, cover+blur+darken, ממלא בלי שוליים ריקים), `.entrance-main` (חד, `aspect-ratio:1000/720` + `object-fit:cover` גורמים לחיתוך 11% מכל צד — 78% נשארים, בגובה מלא), `.entrance-ui` (hint/כפתורים, מתחת לשכבה הראשית). ערכי הכוונון כמשתני CSS על `#start-screen` (`--entrance-crop`/`--entrance-center`/`--entrance-bg-*`).
+- **הכיתוב "PORTAL TO TEL AVIV" (הרחב ביותר ב-GIF) נמדד בפועל** — x=190..1088 מתוך 1280 — ואומת שהחיתוך של 11% משאיר ~3.8% שוליים (נדרש מינימום 3%). אם ה-GIF מתחלף, למדוד מחדש (ראו `design/verify/start/` לצילומי האימות).
+- **גודל טקסט/כפתור ב-`.entrance-ui` נוזלי** (`clamp()` עם יחידות `cqh`/`cqw`, `container-type:size` על `.entrance-ui` עצמו) — לא `vh`/`vw`: אלה לא עוקבים נכון אחרי גודל `game-wrap` בשני המשטרים (רוחב-מוגבל מול גובה-מוגבל), נכשל בפועל בטלפון שוכב (844x390) לפני התיקון. ה-overrides ממוקדים ל-`#start-screen .main-btn` וכו' — **לא** ל-`.main-btn`/`.install-btn`/`.hint` הגלובליים, כדי לא לשנות את `#retry-btn` במסך הסיום.
+- **פוסטר** (`assets/entrance-poster.png`, פריים ראשון, נוצר ע"י `tools/make-entrance-poster.js`) מוצג תמיד קודם; מוחלף ל-GIF רק אחרי טעינה מוצלחת בנפרד (`initEntranceAnimation`, game.js), ונשאר לצמיתות אם הטעינה נכשלת או אם `prefers-reduced-motion`.
+  אימות: `design/verify/start/` (4 גדלי חלון, כולל טלפון שוכב), ושלושת מצבי הטעינה (GIF/פוסטר/reduced-motion) נבדקו ללא שגיאות קונסול.
+
 ## מצב בדיקה מקומי: `?debug=towers`
 
 - פעיל **רק** ב-`IS_LOCAL_HOST` (game.js:113). `?debug=towers&shape=X&gapY=N`

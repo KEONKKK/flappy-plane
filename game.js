@@ -447,6 +447,29 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+// --- מסך הכניסה (ENTRANCE.gif): פוסטר-ואז-אנימציה ---
+// שתי שכבות ה-img (entrance-bg/entrance-main, ראו index.html+style.css)
+// מתחילות עם assets/entrance-poster.png (הפריים הראשון, PNG סטטי) כדי
+// שלעולם לא יהיה רגע של מסך ריק. מחליפים ל-GIF המונפש רק אחרי שהוא
+// נטען בהצלחה בעצמו (לא רק שה-poster נטען) — אם הטעינה נכשלת (אופליין
+// לפני שה-SW הספיק לאחסן, רשת גרועה וכו') הפוסטר נשאר לצמיתות, בלי
+// שבירה. prefers-reduced-motion מדלג על ההחלפה מראש, מאותה סיבה.
+(function initEntranceAnimation() {
+  const ENTRANCE_GIF = "design/raw/ENTRANCE.gif";
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const bg = document.querySelector(".entrance-bg");
+  const main = document.querySelector(".entrance-main");
+  if (!bg || !main) return;
+
+  const preload = new Image();
+  preload.onload = () => {
+    bg.src = ENTRANCE_GIF;
+    main.src = ENTRANCE_GIF;
+  };
+  preload.src = ENTRANCE_GIF;
+})();
+
 // --- התקנה כאפליקציה (PWA): כפתור באנדרואיד, הנחיה באייפון ---
 function isRunningStandalone() {
   return (
