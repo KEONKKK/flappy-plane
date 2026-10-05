@@ -413,11 +413,11 @@ function checkCollisions() {
     // בטווח גם לא תחפוף.
     const centerX = t.x + CONFIG.TOWER_WIDTH / 2;
     if (top < gapTop) {
-      const halfWidth = towerSegmentHalfWidthAt(t.shape, gapTop - top, gapTop);
+      const halfWidth = towerSegmentHalfWidthAt(t.topShape, gapTop - top, gapTop);
       if (right > centerX - halfWidth && left < centerX + halfWidth) return true;
     }
     if (bottom > gapBottom) {
-      const halfWidth = towerSegmentHalfWidthAt(t.shape, bottom - gapBottom, floorY - gapBottom);
+      const halfWidth = towerSegmentHalfWidthAt(t.bottomShape, bottom - gapBottom, floorY - gapBottom);
       if (right > centerX - halfWidth && left < centerX + halfWidth) return true;
     }
   }
@@ -467,13 +467,13 @@ function render() {
 }
 
 // --- מגדלים (בסגנון מגדלי עזריאלי: עגול / משולש / מרובע) ---
-// כל מגדל הוא "טור" אחד — יחידה אטומה: אובייקט בודד שמחזיק גם את החלק
-// העליון וגם את החלק התחתון, עם שדה shape משותף יחיד (ראו spawnTower).
-// ה-shape מוגרל פעם אחת בלבד לכל טור; הציור וההתנגשות של שני החלקים
-// קוראים תמיד את אותו t.shape — אין הגרלה נפרדת לכל חלק, ולכן אין
-// אפשרות מבנית לכך שהעליון והתחתון ייצאו בצורות שונות. ההגרלה עצמה
-// אחידה לחלוטין: שלוש הצורות בהסתברות שווה של שליש כל אחת, בלי זיכרון
-// של הטור הקודם.
+// החלק העליון (תלוי מהתקרה) והחלק התחתון (צומח מהרצפה) של אותו מכשול
+// מגרילים את צורתם **בנפרד ובאופן בלתי תלוי לחלוטין** (topShape מול
+// bottomShape, ראו spawnTower) — במתכוון: מגדל עגול שיורד מלמעלה ומגדל
+// משולש שעולה מלמטה באותו ציר X הם שילוב לגיטימי ורצוי, לא תקלה.
+// כל אחת משתי ההגרלות אחידה לחלוטין: שלוש הצורות בהסתברות שווה של
+// שליש כל אחת, בלי זיכרון של ההגרלה הקודמת (לא של אותו חלק, ולא של
+// החלק השני באותו מכשול).
 const TOWER_SHAPES = ["round", "triangle", "square"];
 
 // כל שלוש הצורות הן כיום תמונה שלמה (לא וקטור) — ראו drawImageTowerSegment.
@@ -508,12 +508,15 @@ function spawnTower() {
   const minGapY = margin + half;
   const maxGapY = floorY - margin - half;
   const gapY = minGapY + Math.random() * Math.max(0, maxGapY - minGapY);
-  // הגרלה יחידה לכל הטור (לא לכל חלק בנפרד) — ראו ההערה מעל TOWER_SHAPES.
-  const shape = TOWER_SHAPES[Math.floor(Math.random() * TOWER_SHAPES.length)];
+  // שתי הגרלות נפרדות ובלתי תלויות — ראו ההערה מעל TOWER_SHAPES. לא
+  // קריאה אחת שמשותפת לשני החלקים.
+  const topShape = TOWER_SHAPES[Math.floor(Math.random() * TOWER_SHAPES.length)];
+  const bottomShape = TOWER_SHAPES[Math.floor(Math.random() * TOWER_SHAPES.length)];
   towers.push({
     x: CONFIG.WIDTH,
     gapY,
-    shape,
+    topShape,
+    bottomShape,
     passed: false,
   });
 }
@@ -541,8 +544,8 @@ function drawTowers() {
     const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
     const bottomHeight = floorY - bottomY;
 
-    drawTowerSegment(t.x, 0, topHeight, CONFIG.TOWER_WIDTH, t.shape, true);
-    drawTowerSegment(t.x, bottomY, bottomHeight, CONFIG.TOWER_WIDTH, t.shape, false);
+    drawTowerSegment(t.x, 0, topHeight, CONFIG.TOWER_WIDTH, t.topShape, true);
+    drawTowerSegment(t.x, bottomY, bottomHeight, CONFIG.TOWER_WIDTH, t.bottomShape, false);
   }
 }
 
