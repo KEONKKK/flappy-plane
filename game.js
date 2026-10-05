@@ -60,6 +60,19 @@ const BG_SCALE = 3.5;
   bgCtx.scale(BG_SCALE, BG_SCALE);
 })();
 
+// שכבה נוספת לאותה סיבה בדיוק: מגדלים שמצוירים מתמונה (לא וקטור) —
+// כרגע רק "משולש" (ראו drawTowerSegment) — חייבים רזולוציה גבוהה +
+// החלקה כדי לא ליצור moiré על רשת החלונות שלהם, בדיוק כמו הרקע.
+const towerImagesCanvas = document.getElementById("tower-images");
+const towerImagesCtx = towerImagesCanvas.getContext("2d");
+(function setupTowerImagesCanvas() {
+  towerImagesCanvas.width = Math.round(CONFIG.WIDTH * BG_SCALE);
+  towerImagesCanvas.height = Math.round(CONFIG.HEIGHT * BG_SCALE);
+  towerImagesCtx.imageSmoothingEnabled = true;
+  towerImagesCtx.imageSmoothingQuality = "high";
+  towerImagesCtx.scale(BG_SCALE, BG_SCALE);
+})();
+
 // מעגל קואורדינטה לוגית לרשת הפיקסלים האמיתית של מאגר הציור, כדי שהמטוס
 // (שזז כל פריים) ירד תמיד על גבול פיקסל שלם — בלי רעידות/טשטוש תת-פיקסל.
 function snapToPixelGrid(value) {
@@ -87,6 +100,7 @@ if ("serviceWorker" in navigator) {
 // רכיב גרפי אחר (רקעים נוספים וכו') עדיין עובר דרך אותו מנגנון טעינה.
 const ASSET_MANIFEST = {
   backgroundCity: "assets/background-city.png",
+  towerTriangle: "assets/tower-triangle.png",
 };
 const assets = {};
 
@@ -421,16 +435,17 @@ function render() {
   drawPlane(plane.x, plane.y, plane.angle);
 }
 
-// --- מגדלים (בסגנון מגדלי עזריאלי: עגול / משולש / מרובע, מתחלפים) ---
+// --- מגדלים (בסגנון מגדלי עזריאלי: עגול / משולש / מרובע) ---
+// כל מגדל חדש מגריל את צורתו באקראי, בהסתברות שווה (שליש-שליש-שליש) —
+// לא מחזור קבוע כמו קודם. "משולש" הוא תמונה (ראו ASSET_MANIFEST /
+// drawTowerSegment); עגול ומרובע נשארים וקטוריים כמו תמיד.
 const TOWER_SHAPES = ["round", "triangle", "square"];
 let towers = [];
 let towerSpawnTimer = 0;
-let nextShapeIndex = 0;
 
 function resetTowers() {
   towers = [];
   towerSpawnTimer = 0;
-  nextShapeIndex = 0;
 }
 
 function spawnTower() {
@@ -440,8 +455,7 @@ function spawnTower() {
   const minGapY = margin + half;
   const maxGapY = floorY - margin - half;
   const gapY = minGapY + Math.random() * Math.max(0, maxGapY - minGapY);
-  const shape = TOWER_SHAPES[nextShapeIndex % TOWER_SHAPES.length];
-  nextShapeIndex++;
+  const shape = TOWER_SHAPES[Math.floor(Math.random() * TOWER_SHAPES.length)];
   towers.push({
     x: CONFIG.WIDTH,
     gapY,
@@ -463,6 +477,9 @@ function updateTowers(dt, dtMs) {
 }
 
 function drawTowers() {
+  // שכבת תמונת-המגדלים (המשולש) לא נדגמת-מחדש כל פריים כמו הרקע (לא
+  // ממלאת את כל השטח באטימות), ולכן צריכה ניקוי מפורש בכל פריים.
+  towerImagesCtx.clearRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
   for (const t of towers) {
     const half = CONFIG.TOWER_GAP / 2;
     const topHeight = t.gapY - half;
@@ -489,8 +506,13 @@ const TOWER_WINDOW_COLOR = "#d9f2fb";
 function drawTowerSegment(x, yTop, height, w, shape, isHanging) {
   if (height <= 0) return;
 
+  if (shape === "triangle") {
+    drawTriangleTowerSegment(x, yTop, height, w);
+    return;
+  }
+
   const radius = w / 2;
-  const tipH = shape === "square" ? 0 : shape === "round" ? radius : Math.min(26, height * 0.35);
+  const tipH = shape === "round" ? radius : 0;
   const bodyTop = isHanging ? yTop : yTop + tipH;
   const bodyBottom = isHanging ? yTop + height - tipH : yTop + height;
   const bodyH = bodyBottom - bodyTop;
@@ -520,22 +542,28 @@ function drawTowerSegment(x, yTop, height, w, shape, isHanging) {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-  } else if (shape === "triangle") {
-    ctx.beginPath();
-    if (isHanging) {
-      ctx.moveTo(x, bodyBottom);
-      ctx.lineTo(x + w, bodyBottom);
-      ctx.lineTo(x + w / 2, yTop + height);
-    } else {
-      ctx.moveTo(x, bodyTop);
-      ctx.lineTo(x + w, bodyTop);
-      ctx.lineTo(x + w / 2, yTop);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
   }
   // מרובע: הגג כבר שטוח כחלק מהמלבן, אין צורך בקצה נוסף.
+}
+
+// מגדל "משולש" (מגדל עזריאלי המשולש) — לא וקטור, אלא גזרה מתוך
+// assets/tower-triangle.png (ראו ASSET_MANIFEST). התמונה היא מגדל
+// שלם, חד מהבסיס עד קודקוד (לא "גוף מלבני + קצה מחודד" כמו עגול/מרובע):
+// החרטום הצר בחלק העליון של הקובץ מייצג את פסגת המגדל (קרוב לתקרת
+// המסך), והבסיס הרחב בתחתית הקובץ מייצג את קרקעית המגדל (קרוב לרצפה)
+// — בדיוק כמו שהמגדל ה"וירטואלי" המלא נמתח תמיד מ-y=0 ועד לרצפה
+// (floorY) בכל הגרלה, בלי תלות בגובה הפער שנפל באקראי. לכן ממפים
+// 1:1 בין y בקנבס (0..floorY) לבין y במקור (0..גובה-התמונה), וגוזרים
+// מהתמונה בדיוק את הפלח שהחלק הזה (תלוי/עולה) אמור להציג. מצוירת על
+// שכבה נפרדת וחדה (towerImagesCtx) — ראו ההסבר ליד setupTowerImagesCanvas.
+function drawTriangleTowerSegment(x, yTop, height, w) {
+  const img = assets.towerTriangle;
+  if (!img) return;
+  const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
+  const scale = img.naturalHeight / floorY;
+  const srcY = yTop * scale;
+  const srcH = height * scale;
+  towerImagesCtx.drawImage(img, 0, srcY, img.naturalWidth, srcH, x, yTop, w, height);
 }
 
 // רשת חלונות על גוף המגדל.
