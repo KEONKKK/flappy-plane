@@ -1,16 +1,11 @@
 // Flappy Plane — vanilla JS + Canvas, no libraries.
 "use strict";
 
-// סמן בילד: מודפס לקונסול מיד עם טעינת הקובץ, לפני כל שאר הקוד. המטרה
-// היחידה שלו היא להסיר ספק — "האם זה בכלל הקוד העדכני שרץ לי עכשיו?"
-// (שאלה שחזרה הרבה פעמים בפיתוח של המשחק הזה, כמעט תמיד בגלל מטמון/
-// Service Worker תקוע, לא בגלל באג אמיתי בלוגיקה — ראו service-worker.js
-// להסבר המלא). בכל שינוי משמעותי יש לעדכן את המחרוזת הזו **ביחד עם**
-// CACHE_VERSION ב-service-worker.js (אותו ערך, שני הקבצים, כדי שלא
-// יהיה צורך לזכור שתי מערכות ספירה נפרדות) — פתיחת הקונסול ובדיקת
-// השורה הזו היא הדרך המהירה ביותר לדעת בוודאות אם הדפדפן מריץ בפועל את
-// מה שבדיסק/בקומיט האחרון, לפני שמניחים שיש תקלה בלוגיקה.
-console.log("Flappy Plane build: v17");
+// מספר הגרסה המוצג (קונסול + פינת מסך הפתיחה) נטען בהמשך הקובץ, אחרי
+// שהעמוד מוכן — ראו reportBuildVersion() למטה. BUILD_VERSION עצמו
+// מגיע מ-version.js (נטען לפני הקובץ הזה ב-index.html) — ראו שם להסבר
+// המלא על למה זה קובץ נפרד ולמה זה *לא* הערך הסופי שמוצג (יש עדיפות
+// לשאול את ה-Service Worker הפעיל בפועל, כשיש כזה — ראו למטה).
 
 // כל הפרמטרים שמשפיעים על תחושת המשחק נמצאים כאן, במקום אחד.
 const CONFIG = {
@@ -101,13 +96,87 @@ document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: fal
 
 // רישום ה-service worker (PWA): שומר את קובצי המשחק במטמון כדי שהוא
 // יעבוד גם בלי אינטרנט. נתיב יחסי כדי לעבוד גם בתת-תיקייה (GitHub Pages).
+//
+// שלושה מנגנונים, יחד, פותרים את "גרסה חדשה לא מגיעה בלי ניקוי ידני של
+// המטמון" (ראו design/AUDIT-2.md לחקירה המלאה עם שחזור בפועל):
+//
+// 1. updateViaCache:"none" — מכריח את הדפדפן לבדוק עדכון ל-
+//    service-worker.js עצמו מול הרשת בכל פעם, לא מול מטמון ה-HTTP שלו
+//    (אותה בעיה בדיוק כמו ה-fetch בתוך ה-SW, רק שכבה אחת מעל — ראו
+//    ההערה המקבילה ב-service-worker.js).
+// 2. registration.update() מפורש בכל טעינה, במקום לחכות ללו"ז הפנימי
+//    (לא-תמיד-מיידי) של הדפדפן — בודק גרסה חדשה באופן יזום.
+// 3. oncontrollerchange → רענון עמוד *אוטומטי*, פעם אחת — אבל **רק**
+//    כשזה מעבר אמיתי מ-SW ישן לחדש, לא ההשתלטות הראשונה-אי-פעם על דף
+//    חדש (ביקור ראשון, שום SW לא שלט קודם — clients.claim() מפעיל את
+//    אותו אירוע controllerchange גם אז, למרות שאין שום "גרסה ישנה"
+//    להתעדכן ממנה; hadController שומר את זה: null→worker לא סופר).
+//    ברגע שגרסה חדשה מסיימת activate ותופסת שליטה על דף שכבר *היה*
+//    תחת שליטת גרסה קודמת, זה האירוע שמודיע על כך לעמוד הפתוח. בלי
+//    המאזין הזה, העמוד הפתוח ממשיך להריץ את הקוד הישן שכבר בזיכרון עד
+//    שמישהו ירענן ידנית — בדיוק התקלה שלמשתמשי טלפון (אין להם DevTools
+//    לנקות מטמון) אין דרך לעקוף. עם המאזין, המעבר קורה לבד תוך טעינה
+//    אחת-שתיים, בלי שום פעולה מצד המשתמש — זה בדיוק מה שנבדק במבחן
+//    המעבר שתועד ב-AUDIT-2.md.
 if ("serviceWorker" in navigator) {
+  let hadController = Boolean(navigator.serviceWorker.controller);
+  let refreshedOnce = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController) {
+      hadController = true; // השתלטות ראשונה-אי-פעם, לא עדכון אמיתי — לא מרעננים
+      return;
+    }
+    if (refreshedOnce) return;
+    refreshedOnce = true;
+    window.location.reload();
+  });
+
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {
-      // כשלון ברישום לא אמור לעצור את המשחק — הוא ימשיך לעבוד בלי מצב אופליין.
-    });
+    navigator.serviceWorker
+      .register("./service-worker.js", { updateViaCache: "none" })
+      .then((registration) => {
+        registration.update().catch(() => {});
+      })
+      .catch(() => {
+        // כשלון ברישום לא אמור לעצור את המשחק — הוא ימשיך לעבוד בלי מצב אופליין.
+      });
   });
 }
+
+// מספר הגרסה המוצג (קונסול + פינת מסך הפתיחה, #build-marker): נשאל
+// תמיד את ה-Service Worker *הפעיל בפועל* (postMessage, לא קריאה ישירה
+// ל-BUILD_VERSION), כי השאלה הרלוונטית היא לא "מה כתוב בקובץ שנטען" —
+// game.js עצמו יכול להיות טרי בזמן שה-SW עדיין ישן (ראו AUDIT-2.md) —
+// אלא "מי *באמת* שולט בדף הזה עכשיו". service-worker.js עונה ל-
+// GET_VERSION עם ה-CACHE_VERSION שלו. אם אין עדיין SW ששולט (ביקור
+// ראשון-אי-פעם, לפני שה-register למעלה הספיק להשתלט) או שהוא לא עונה
+// תוך זמן סביר, נופלים חזרה ל-BUILD_VERSION הסטטי מ-version.js — עדיף
+// מידע חלקי (ומסומן ככזה) על פני שום מידע.
+function reportBuildVersion() {
+  const show = (version, source) => {
+    console.log(`Flappy Plane build: ${version} (${source})`);
+    const el = document.getElementById("build-marker");
+    if (el) el.textContent = version;
+  };
+
+  if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) {
+    show(BUILD_VERSION, "version.js — אין עדיין Service Worker פעיל");
+    return;
+  }
+
+  const channel = new MessageChannel();
+  const timeout = setTimeout(
+    () => show(BUILD_VERSION, "version.js — ה-Service Worker לא הגיב"),
+    800
+  );
+  channel.port1.onmessage = (event) => {
+    clearTimeout(timeout);
+    const version = event.data && event.data.version ? event.data.version : BUILD_VERSION;
+    show(version, "Service Worker פעיל, מאומת");
+  };
+  navigator.serviceWorker.controller.postMessage({ type: "GET_VERSION" }, [channel.port2]);
+}
+reportBuildVersion();
 
 // --- מניפסט נכסים: טעינה מסודרת מראש, לפני תחילת המשחק ---
 // המטוס עצמו חזר להיות מצויר בקוד (ראו drawPlane) — ניסיון לחלץ אותו
