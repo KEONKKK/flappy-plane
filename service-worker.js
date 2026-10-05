@@ -10,7 +10,7 @@
 // ב-version.js לא היה משנה את ה-bytes של הקובץ הזה, והדפדפן לא היה
 // מזהה שיש גרסה חדשה להתקין בכלל (ראו design/AUDIT-2.md).
 // tools/check-assets.js נכשל אם שני הקבצים לא תואמים.
-const CACHE_VERSION = "v21";
+const CACHE_VERSION = "v22";
 const CACHE_NAME = `flappy-plane-${CACHE_VERSION}`;
 
 // רק קבצים מאותו מקור — קבצים חיצוניים (כמו גופן Google Fonts) נכנסים
@@ -30,6 +30,7 @@ const APP_SHELL = [
   "./assets/tower-square.png",
   "./assets/tower-triangle.png",
   "./assets/tower_base.png",
+  "./assets/plane.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",

@@ -31,15 +31,36 @@ const CONFIG = {
   GROUND_HEIGHT: 40,      // גובה קו הרצפה (קולייז'ן בלבד — אין יותר ציור רצפה נפרד)
 
   PLANE_X: 110,                 // מיקום אופקי קבוע של המטוס
-  PLANE_DISPLAY_WIDTH: 68,      // 17% מרוחב אזור המשחק (400)
-  PLANE_DISPLAY_HEIGHT: 28,     // יחס רוחב-גובה קבוע (~2.45:1), כמו בעיצוב הווקטורי המקורי
-  PLANE_HITBOX_WIDTH_SCALE: 0.84,  // תיבת הפגיעה קטנה מהמלבן המלא של המטוס, באותו יחס כמו לפני ההגדלה
-  PLANE_HITBOX_HEIGHT_SCALE: 0.55, // (הזנב/הכנף המחודדים לא נספרים כפגיעה)
+  PLANE_DISPLAY_WIDTH: 68,      // 17% מרוחב אזור המשחק (400). הגובה *לא* קבוע כאן —
+                                 // נגזר מיחס הרוחב-גובה האמיתי של נכס המטוס, בלי מתיחה
+                                 // (ראו PLANE_ASSET/planeDisplayHeight למטה).
   PLANE_TILT_UP_MAX: (-20 * Math.PI) / 180,   // הטיית אף מקסימלית למעלה: 20°
   PLANE_TILT_DOWN_MAX: (25 * Math.PI) / 180,  // הטיית אף מקסימלית למטה: 25°
 
   CITY_PARALLAX_FACTOR: 1 / 3,  // שכבת העיר/שמיים גוללת בשליש ממהירות המגדלים
 };
+
+// נכס המטוס (assets/plane.png, מקור: design/raw/NEW_PLANE.png): מידות
+// ותיבת-הפגיעה נמדדו פעם אחת מהפיקסלים בפועל, לא מוקלדים בניחוש —
+// frameWidth/frameHeight הם הממדים האמיתיים של האמנות (534x282 בקובץ
+// המקור הוא הגדלה פי 6 בדגימת-שכן-קרוב של 89x47 "פיקסלים אמיתיים",
+// אומת שכל בלוק 6x6 אחיד). hitboxFrac מגדיר את תיבת גוף המטוס בלבד
+// (בלי זנב/כנפיים/מנועים), כשברירים חלקיים של frameWidth/frameHeight:
+// שורות ה"גוף" הן שורות שבהן יש רצף פיקסלים אטומים ארוך מ-70% מרוחב
+// הפריים (הזנב/הכנף המחודדים אף פעם לא מגיעים לרוחב כזה), מכווץ 10%
+// מכל צד כדי שפגיעה "כמעט" לא תיחשב. אם תמונת המטוס מתחלפת שוב, מודדים
+// מחדש מהפיקסלים (לא מעתיקים ניחוש) ומעדכנים כאן.
+const PLANE_ASSET = {
+  frameWidth: 89,
+  frameHeight: 47,
+  hitboxFrac: { left: 0.1000, top: 0.3915, right: 0.9000, bottom: 0.6298 },
+};
+
+// הגובה היחיד שנגזר תמיד מהיחס האמיתי של הנכס, אף פעם לא קבוע עצמאי —
+// כך שאם הנכס מתחלף, הגובה על המסך תמיד נשאר נאמן ליחס שלו, בלי מתיחה.
+function planeDisplayHeight() {
+  return CONFIG.PLANE_DISPLAY_WIDTH * (PLANE_ASSET.frameHeight / PLANE_ASSET.frameWidth);
+}
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -83,6 +104,21 @@ const towerImagesCtx = towerImagesCanvas.getContext("2d");
   towerImagesCtx.imageSmoothingEnabled = true;
   towerImagesCtx.imageSmoothingQuality = "high";
   towerImagesCtx.scale(BG_SCALE, BG_SCALE);
+})();
+
+// שכבה רביעית לאותה סיבה בדיוק כמו הרקע/המגדלים: נכס המטוס
+// (assets/plane.png) הוא אמנות-פיקסל אמיתית ולא וקטור — ציור שלו על
+// canvas#game ברזולוציה הנמוכה שלו (PIXEL_SCALE) איבד את המתאר ואת
+// החלונות כמעט לגמרי (נבדק חזותית). בניגוד ל-bg-city/tower-images,
+// כאן imageSmoothingEnabled=false: זו אמנות-פיקסל עם קצוות חדים
+// מכוונים, לא תצלום שצריך החלקה. ראו PLANE_ASSET למטה לפרטי הנכס.
+const planeCanvas = document.getElementById("plane-layer");
+const planeCtx = planeCanvas.getContext("2d");
+(function setupPlaneCanvas() {
+  planeCanvas.width = Math.round(CONFIG.WIDTH * BG_SCALE);
+  planeCanvas.height = Math.round(CONFIG.HEIGHT * BG_SCALE);
+  planeCtx.imageSmoothingEnabled = false;
+  planeCtx.scale(BG_SCALE, BG_SCALE);
 })();
 
 // מעגל קואורדינטה לוגית לרשת הפיקסלים האמיתית של מאגר הציור, כדי שהמטוס
@@ -215,6 +251,7 @@ const ASSET_MANIFEST = {
   towerSquare: "assets/tower-square.png",
   towerTriangle: "assets/tower-triangle.png",
   towerBase: "assets/tower_base.png",
+  plane: "assets/plane.png",
 };
 const assets = {};
 
@@ -499,8 +536,10 @@ function update(dt, dtMs) {
 
 // --- התנגשויות: רצפה, תקרה, מגדלים ---
 function checkCollisions() {
-  const halfW = (CONFIG.PLANE_DISPLAY_WIDTH / 2) * CONFIG.PLANE_HITBOX_WIDTH_SCALE;
-  const halfH = (CONFIG.PLANE_DISPLAY_HEIGHT / 2) * CONFIG.PLANE_HITBOX_HEIGHT_SCALE;
+  // תיבת הפגיעה נגזרת מ-PLANE_ASSET.hitboxFrac (נמדד מהפיקסלים בפועל של
+  // נכס המטוס — ראו שם), לא מקבוע-גודל נפרד שעלול להתבדר מהאמנות בפועל.
+  const halfW = ((PLANE_ASSET.hitboxFrac.right - PLANE_ASSET.hitboxFrac.left) * CONFIG.PLANE_DISPLAY_WIDTH) / 2;
+  const halfH = ((PLANE_ASSET.hitboxFrac.bottom - PLANE_ASSET.hitboxFrac.top) * planeDisplayHeight()) / 2;
   const top = plane.y - halfH;
   const bottom = plane.y + halfH;
   const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
@@ -869,70 +908,42 @@ function drawBackgroundCity() {
   }
 }
 
-// --- מטוס נוסעים — לבן אחיד, מצויר בקוד (ללא הצללה, ללא צבעים נוספים) ---
-// כל צורה (גוף/זנב/כנף) מצוירת פעמיים לפני המילוי: קודם הילה בהירה רחבה,
-// ואז קו מתאר כהה צר יותר מעליה — כך שנשאר טבעת הילה דקה מחוץ לקו המתאר,
-// בדיוק כמו באפקט שהיה אפוי לתוך קובץ התמונה, רק שעכשיו זה נגזר בזמן
-// אמת מהצורה עצמה. הסיבוב סביב מרכז המטוס; המיקום מעוגל לרשת הפיקסלים
-// האמיתית כדי למנוע רעידות/טשטוש תת-פיקסל.
-const PLANE_WHITE = "#f8fafc";
-const PLANE_OUTLINE = "#1b2a38";
-const PLANE_HALO = "#f5f8fa";
-
-function strokeAndFillShape(path) {
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = PLANE_HALO;
-  ctx.lineWidth = 6;
-  ctx.stroke(path);
-  ctx.strokeStyle = PLANE_OUTLINE;
-  ctx.lineWidth = 4;
-  ctx.stroke(path);
-  ctx.fillStyle = PLANE_WHITE;
-  ctx.fill(path);
-}
-
+// --- מטוס נוסעים — נכס תמונה אמיתי (assets/plane.png, ראו PLANE_ASSET) ---
+// מצויר על canvas#plane-layer הייעודי שלו (לא canvas#game, ראו
+// setupPlaneCanvas למעלה), ביחס הרוחב-גובה האמיתי של הנכס — בלי מתיחה.
+// ציר הסיבוב של ההטיה הוא מרכז *גוף* המטוס (bodyCenterX/Y, מחושב
+// מ-PLANE_ASSET.hitboxFrac), לא מרכז הפריים כולו: הזנב הגבוה משמאל
+// והכנפיים הנמוכות מתחת לא סימטריים סביב הפריים, אז סיבוב סביב מרכז
+// הפריים היה מזיז את המטוס בצורה נראית לעין בכל הטיה. התמונה מצוירת
+// בהיסט (-bodyCenterX, -bodyCenterY) ביחס לנקודת המקור אחרי ה-translate,
+// כך שבפועל גוף המטוס — לא התמונה — יושב בדיוק על (x, y).
 function drawPlane(x, y, angle = 0) {
+  if (!assets.plane) return; // הגנת-שפיות: לא אמור לקרות אחרי loadAssets
   const w = CONFIG.PLANE_DISPLAY_WIDTH;
-  const h = CONFIG.PLANE_DISPLAY_HEIGHT;
+  const h = planeDisplayHeight();
+  const bodyCenterX = ((PLANE_ASSET.hitboxFrac.left + PLANE_ASSET.hitboxFrac.right) / 2) * w;
+  const bodyCenterY = ((PLANE_ASSET.hitboxFrac.top + PLANE_ASSET.hitboxFrac.bottom) / 2) * h;
 
-  ctx.save();
-  ctx.translate(snapToPixelGrid(x), snapToPixelGrid(y));
-  ctx.rotate(angle);
+  planeCtx.clearRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+  planeCtx.save();
+  planeCtx.translate(snapToPixelGrid(x), snapToPixelGrid(y));
+  planeCtx.rotate(angle);
+  planeCtx.drawImage(assets.plane, -bodyCenterX, -bodyCenterY, w, h);
+  planeCtx.restore();
 
-  // זנב (מצויר ראשון, מתחת לגוף)
-  const tail = new Path2D();
-  tail.moveTo(-w / 2 + 2, -h / 2 + 2);
-  tail.lineTo(-w / 2 - 8, -h);
-  tail.lineTo(-w / 2 + 12, -h / 2 + 2);
-  tail.closePath();
-  strokeAndFillShape(tail);
-
-  // כנף
-  const wing = new Path2D();
-  wing.moveTo(-6, h / 2 - 4);
-  wing.lineTo(-20, h + 6);
-  wing.lineTo(4, h / 2 + 2);
-  wing.closePath();
-  strokeAndFillShape(wing);
-
-  // גוף ראשי — משושה מוארך עם חרטום מחודד ימינה
-  const body = new Path2D();
-  body.moveTo(-w / 2, -h / 2);
-  body.lineTo(w / 2 - 10, -h / 2);
-  body.lineTo(w / 2, 0);
-  body.lineTo(w / 2 - 10, h / 2);
-  body.lineTo(-w / 2, h / 2);
-  body.closePath();
-  strokeAndFillShape(body);
-
-  // שורת חלונות תא הנוסעים + חלון תא הטייס — כהים, לא "צבע" אלא פרט תפקודי
-  ctx.fillStyle = PLANE_OUTLINE;
-  for (let i = -3; i <= 1; i++) {
-    ctx.fillRect(i * 8 - 2, -5, 5, 5);
+  // מצב ?debug=towers (ראו DEBUG_TOWERS, מקומי בלבד): מסגרת אדומה סביב
+  // תיבת הפגיעה האמיתית. מצוירת *מחוץ* ל-rotate בכוונה — תיבת הפגיעה
+  // עצמה ציר-מיושרת בעולם ולא מסתובבת עם ההטיה (ראו checkCollisions),
+  // אז המסגרת חייבת לשקף בדיוק את זה, לא את המטוס המוטה.
+  if (DEBUG_TOWERS) {
+    const halfW = ((PLANE_ASSET.hitboxFrac.right - PLANE_ASSET.hitboxFrac.left) * w) / 2;
+    const halfH = ((PLANE_ASSET.hitboxFrac.bottom - PLANE_ASSET.hitboxFrac.top) * h) / 2;
+    planeCtx.save();
+    planeCtx.strokeStyle = "#ff2d55";
+    planeCtx.lineWidth = 1;
+    planeCtx.strokeRect(x - halfW, y - halfH, halfW * 2, halfH * 2);
+    planeCtx.restore();
   }
-  ctx.fillRect(12, -3, 6, 6);
-
-  ctx.restore();
 }
 
 // --- אתחול: טוענים נכסים, ואז מתחילים את לולאת המשחק ---

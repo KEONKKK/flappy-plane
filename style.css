@@ -90,6 +90,7 @@ html, body {
    חוזר על עצמו במגדל המשולש אילו צויר על אותו קנבס פיקסלי. */
 canvas#bg-city,
 canvas#tower-images,
+canvas#plane-layer,
 canvas#game {
   position: absolute;
   inset: 0;
@@ -104,6 +105,11 @@ canvas#tower-images {
   image-rendering: auto; /* החלקה רגילה — תמונות, לא ספרייט פיקסל-ארט */
 }
 
+/* canvas#plane-layer: אותה רזולוציה גבוהה כמו bg-city/tower-images (כדי
+   שלא לאבד פרטים מדגימה גסה מדי — ראו game.js ליד PLANE_ASSET), אבל
+   בלי החלקה כמו canvas#game: נכס המטוס הוא אמנות-פיקסל אמיתית
+   (89x47 "פיקסלים"), לא תצלום, וצריך קצוות חדים. */
+canvas#plane-layer,
 canvas#game {
   image-rendering: pixelated;
   image-rendering: -moz-crisp-edges;

@@ -47,12 +47,34 @@ commit `2f7ea19`). היא נקראת ע"י `tools/run-regression.js` ברוח, �
   שקרה ב-v21, מ-floorY ל-CONFIG.HEIGHT) חייבים לעדכן גם את הקריאה
   ל-towerSegmentHalfWidthAt ב-checkCollisions בדיוק באותו ערך.**
 
+## מטוס (game.js)
+
+- **נכס תמונה אמיתי** (`assets/plane.png`, 89x47, מקור `design/raw/NEW_PLANE.png`)
+  מצויר על קנבס ייעודי (`canvas#plane-layer`, ברזולוציה גבוהה כמו
+  bg-city/tower-images אבל `imageSmoothingEnabled=false` — זו אמנות-פיקסל
+  אמיתית, לא תצלום). ציור על `canvas#game` (הרזולוציה הנמוכה) שובר את
+  המתאר/החלונות — נבדק חזותית, ראו `design/verify/plane/`.
+- **ציר הסיבוב הוא מרכז גוף המטוס**, לא מרכז הפריים — `PLANE_ASSET.hitboxFrac`
+  (game.js) ו-`bodyCenterX`/`bodyCenterY` ב-`drawPlane` (game.js:920).
+- **תיבת הפגיעה** נגזרת מאותם `hitboxFrac`, לא מקבוע-גודל נפרד —
+  `checkCollisions` (game.js:501). נמדדה מהפיקסלים בפועל (שורות שבהן יש
+  רצף אטום ארוך מ-70% מהרוחב, מכווץ 10% מכל צד), לא בניחוש. אם תמונת
+  המטוס מתחלפת שוב, מודדים מחדש מהפיקסלים ומעדכנים את `PLANE_ASSET`.
+- **הגובה על המסך תמיד נגזר** מהיחס האמיתי של הנכס
+  (`planeDisplayHeight()`, game.js) — אף פעם לא קבוע/מתוח בנפרד.
+  `CONFIG.PLANE_X`/`PLANE_DISPLAY_WIDTH` לא השתנו.
+  אימות: `tools/run-regression.js` (6 תמונות הייחוס כוללות את המטוס
+  במיקום הקבוע שלו; `design/verify/plane/` — שלוש הטיות, עם/בלי תיבת
+  פגיעה).
+
 ## מצב בדיקה מקומי: `?debug=towers`
 
 - פעיל **רק** ב-`IS_LOCAL_HOST` (game.js:113). `?debug=towers&shape=X&gapY=N`
   מקבע מגדל יחיד (`DEBUG_FROZEN_TOWER`, game.js:641), עוצר עדכון/תזוזה/
   התנגשות (`update()`, game.js:485), ומצייר מסגרות דיבוג
-  (`strokeDebugRect`/`strokeDebugLine`, game.js:817-834).
+  (`strokeDebugRect`/`strokeDebugLine`, game.js:817-834), כולל מסגרת
+  אדומה סביב תיבת הפגיעה של המטוס (`drawPlane`, ציר-מיושרת בעולם, לא
+  מסתובבת עם ההטיה — משקפת בדיוק את מה ש-`checkCollisions` בודק).
   אימות: `tools/run-regression.js` (בודק שהמגדל באמת קפוא אחרי זמן).
 
 ## עדכוני גרסה ו-Service Worker
