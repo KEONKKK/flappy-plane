@@ -2,7 +2,7 @@
 // שהמשחק יעבוד גם בלי אינטרנט, ומתעדכן כשה-CACHE_VERSION משתנה.
 "use strict";
 
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const CACHE_NAME = `flappy-plane-${CACHE_VERSION}`;
 
 // רק קבצים מאותו מקור — קבצים חיצוניים (כמו גופן Google Fonts) נכנסים
