@@ -480,10 +480,14 @@ function render() {
 // החלק העליון (תלוי מהתקרה) והחלק התחתון (צומח מהרצפה) של אותו מכשול
 // מגרילים את צורתם **בנפרד ובאופן בלתי תלוי לחלוטין** (topShape מול
 // bottomShape, ראו spawnTower) — במתכוון: מגדל עגול שיורד מלמעלה ומגדל
-// משולש שעולה מלמטה באותו ציר X הם שילוב לגיטימי ורצוי, לא תקלה.
-// כל אחת משתי ההגרלות אחידה לחלוטין: שלוש הצורות בהסתברות שווה של
-// שליש כל אחת, בלי זיכרון של ההגרלה הקודמת (לא של אותו חלק, ולא של
-// החלק השני באותו מכשול).
+// משולש שעולה מלמטה באותו ציר X הם שילוב לגיטימי ורצוי — אבל **אסור
+// שיהיו אותה צורה**: topShape ו-bottomShape חייבים תמיד להיות שונים
+// (ראו spawnTower). ה-top מוגרל חופשי מתוך שלוש הצורות (שליש-שליש-שליש
+// אמיתי), ואז ה-bottom מוגרל רק מתוך שתי הצורות שנשארו — כך שההתאמה
+// Top===Bottom מובטחת מתמטית ל-0%, בעוד שההתפלגות השולית (marginal) של
+// כל צורה, גם ב-top וגם ב-bottom בנפרד, עדיין בדיוק שליש (ראו ההוכחה
+// בהערה מעל spawnTower). בלי זיכרון של ההגרלה הקודמת — כל טור עצמאי
+// לגמרי מהטור שלפניו.
 const TOWER_SHAPES = ["round", "triangle", "square"];
 
 // כל שלוש הצורות הן כיום תמונה שלמה (לא וקטור) — ראו drawImageTowerSegment.
@@ -553,10 +557,20 @@ function spawnTower() {
   const minGapY = margin + half;
   const maxGapY = floorY - margin - half;
   const gapY = minGapY + Math.random() * Math.max(0, maxGapY - minGapY);
-  // שתי הגרלות נפרדות ובלתי תלויות — ראו ההערה מעל TOWER_SHAPES. לא
-  // קריאה אחת שמשותפת לשני החלקים.
+  // שלב א': topShape מוגרל חופשי מתוך שלוש הצורות — שליש בדיוק לכל אחת.
+  // שלב ב': מסננים את הצורה שנבחרה מהמאגר, נשארות בדיוק שתיים.
+  // שלב ג': bottomShape מוגרל מתוך שתי הנותרות בלבד (חצי-חצי ביניהן) —
+  // כך ש-topShape !== bottomShape מובטח ב-100% מהמקרים, בלי יוצא מהכלל.
+  //
+  // ההוכחה שההתפלגות השולית של bottomShape נשארת שליש-שליש-שליש (לא
+  // רק ש-top כן): לכל צורה X, הסיכוי ש-bottom===X הוא
+  // P(top=A)*P(bottom=X|top=A) + P(top=B)*P(bottom=X|top=B) — סכום על
+  // שתי הצורות האחרות A,B (ל-top=X עצמו הסיכוי לכך הוא 0, הוא כבר סונן
+  // החוצה) — ולכל אחת מהן (1/3)*(1/2), סה"כ (1/3)*(1/2)+(1/3)*(1/2) =
+  // 1/3 בדיוק. לכן גם bottomShape מגיע לשליש-שליש-שליש, לא רק topShape.
   const topShape = TOWER_SHAPES[Math.floor(Math.random() * TOWER_SHAPES.length)];
-  const bottomShape = TOWER_SHAPES[Math.floor(Math.random() * TOWER_SHAPES.length)];
+  const remainingShapes = TOWER_SHAPES.filter((s) => s !== topShape);
+  const bottomShape = remainingShapes[Math.floor(Math.random() * remainingShapes.length)];
   towers.push({
     x: CONFIG.WIDTH,
     gapY,
