@@ -1,0 +1,12 @@
+{
+  "name": "flappy-plane-tooling",
+  "private": true,
+  "version": "0.0.0",
+  "description": "תלות פיתוח יחידה ל-tools/run-regression.js בלבד. המשחק עצמו (index.html/game.js/וכו') נשאר ללא build step וללא תלויות — ראו AGENTS.md. אל תוסיפו כאן תלות runtime למשחק עצמו.",
+  "scripts": {
+    "regression": "node tools/run-regression.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
