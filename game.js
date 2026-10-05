@@ -488,6 +488,7 @@ function update(dt, dtMs) {
     updateBackgroundCity(dt);
   }
   if (gameState !== STATE.PLAYING) return;
+  if (DEBUG_FROZEN_TOWER) return; // מצב בדיקה: תמונה סטטית, בלי תזוזה/התנגשות/ניקוד
   updatePlanePhysics(dt);
   updateTowers(dt, dtMs);
   updateScore();
@@ -529,7 +530,10 @@ function checkCollisions() {
       if (right > centerX - halfWidth && left < centerX + halfWidth) return true;
     }
     if (bottom > gapBottom) {
-      const halfWidth = towerSegmentHalfWidthAt(t.bottomShape, bottom - gapBottom, floorY - gapBottom);
+      // floorY-gapBottom היה ה-L הישן (עד קו הרצפה); הציור עצמו עובר
+      // עד CONFIG.HEIGHT עכשיו (ראו drawTowers) — תיבת הפגיעה חייבת
+      // להיגזר מאותו L, בדיוק לפי העיקרון ב-towerSegmentHalfWidthAt.
+      const halfWidth = towerSegmentHalfWidthAt(t.bottomShape, bottom - gapBottom, CONFIG.HEIGHT - gapBottom);
       if (right > centerX - halfWidth && left < centerX + halfWidth) return true;
     }
   }
@@ -604,6 +608,16 @@ const TOWER_SHAPES = ["round", "triangle", "square"];
 // "יתפצלו" לשני מקורות מידע שונים.
 const TOWER_IMAGE_ASSET_KEY = { round: "towerRound", square: "towerSquare", triangle: "towerTriangle" };
 
+// כמה שורות פיקסל, בקצה הרחוק מהפער (סוף קובץ התמונה — ה"בסיס" המעוגל
+// או המחודד של עגול/מרובע), אינן אטומות לכל רוחב התמונה. זה התחום שבו
+// המלבן (tower_base.png) חייב לשכב *מתחת* לתמונת המגדל ולהיראות רק דרך
+// החורים שמתחת לבסיס — ראו drawTowerFromGapEdge. נמדד מהפיקסלים
+// האמיתיים של כל תמונה (לא מוקלד בניחוש) ע"י tools/measure-tower-base-zones.js;
+// אם תמונת מגדל כלשהי מתחלפת, מריצים את הסקריפט מחדש ומעתיקים את הפלט
+// לכאן. במשולש הערך קטן כמעט לאפס כי הוא מצטייר כחוד שמתרחב בהדרגה עד
+// קו ישר בדיוק בסוף התמונה — אין "בסיס מעוגל" נפרד לכסות.
+const TOWER_BASE_ZONE_SOURCE_PX = { round: 72, square: 84, triangle: 4 };
+
 // שולף את התמונה הטעונה עבור צורת-מגדל נתונה. זורק אם shape לא מוכר
 // או שהנכס שלו לא נטען — "מגן שפיות" שמוודא שלעולם לא נצייר (או נחשב
 // תיבת פגיעה) עבור צורה בלי נכס גרפי תואם במפורש.
@@ -614,10 +628,33 @@ function towerSegmentAsset(shape) {
   return img;
 }
 
+// --- מצב בדיקה (debug=towers): רק בכתובת מקומית (ראו IS_LOCAL_HOST) ---
+// ?debug=towers&shape=round|square|triangle&gapY=NNN קובע מגדל יחיד,
+// קפוא (בלי תזוזה, בלי הגרלה, בלי התנגשויות), באותה צורה למעלה ולמטה,
+// בגובה הרווח הנתון — כדי לצלם תרחיש מדויק וחזיר (ראו drawTowerFromGapEdge
+// למסגרות הבדיקה שהוא מצייר במצב הזה).
+const DEBUG_PARAMS = IS_LOCAL_HOST ? new URLSearchParams(location.search) : null;
+const DEBUG_TOWERS = Boolean(DEBUG_PARAMS && DEBUG_PARAMS.get("debug") === "towers");
+const DEBUG_FIXED_SHAPE = DEBUG_PARAMS ? DEBUG_PARAMS.get("shape") : null;
+const DEBUG_FIXED_GAPY = DEBUG_PARAMS ? Number(DEBUG_PARAMS.get("gapY")) : NaN;
+const DEBUG_FROZEN_TOWER = Boolean(
+  DEBUG_TOWERS && DEBUG_FIXED_SHAPE && TOWER_IMAGE_ASSET_KEY[DEBUG_FIXED_SHAPE] && Number.isFinite(DEBUG_FIXED_GAPY)
+);
+
 let towers = [];
 let towerSpawnTimer = 0;
 
 function resetTowers() {
+  if (DEBUG_FROZEN_TOWER) {
+    towers = [{
+      x: CONFIG.PLANE_X + 150,
+      gapY: DEBUG_FIXED_GAPY,
+      topShape: DEBUG_FIXED_SHAPE,
+      bottomShape: DEBUG_FIXED_SHAPE,
+      passed: false,
+    }];
+    return;
+  }
   towers = [];
   towerSpawnTimer = 0;
 }
@@ -681,8 +718,11 @@ function drawTowers() {
     const half = CONFIG.TOWER_GAP / 2;
     const topHeight = t.gapY - half;
     const bottomY = t.gapY + half;
-    const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
-    const bottomHeight = floorY - bottomY;
+    // עד לקצה המוחלט של ה-canvas (CONFIG.HEIGHT), לא עד קו הרצפה
+    // (GROUND_HEIGHT) — אותו קו נשאר קו ההתנגשות עם הרצפה בלבד
+    // (checkCollisions), אבל הוא לא "קצה הציור": בלעדי זה נשאר פס רקע
+    // חשוף בין תחתית המגדל לתחתית המסך (בדיוק הפגם שדווח).
+    const bottomHeight = CONFIG.HEIGHT - bottomY;
 
     // flip זהה לכל הצורות (עגול/מרובע/משולש) — ראו drawTowerSegment.
     // החלק העליון *תמיד* הפוך, החלק התחתון *אף פעם* לא — זה לא תלוי
@@ -707,46 +747,90 @@ function drawTowers() {
 function drawTowerSegment(x, segmentYTop, segmentHeight, w, shape, flip) {
   if (segmentHeight <= 0) return;
   const gapEdgeY = flip ? segmentYTop + segmentHeight : segmentYTop;
+  const baseZoneSourcePx = TOWER_BASE_ZONE_SOURCE_PX[shape];
 
   towerImagesCtx.save();
   if (flip) {
     towerImagesCtx.translate(0, gapEdgeY);
     towerImagesCtx.scale(1, -1); // היפוך אנכי בלבד — לא אופקי
-    drawTowerFromGapEdge(towerSegmentAsset(shape), assets.towerBase, x, 0, w, segmentHeight);
+    drawTowerFromGapEdge(towerSegmentAsset(shape), assets.towerBase, x, 0, w, segmentHeight, baseZoneSourcePx);
   } else {
-    drawTowerFromGapEdge(towerSegmentAsset(shape), assets.towerBase, x, gapEdgeY, w, segmentHeight);
+    drawTowerFromGapEdge(towerSegmentAsset(shape), assets.towerBase, x, gapEdgeY, w, segmentHeight, baseZoneSourcePx);
   }
   towerImagesCtx.restore();
 }
 
 // מצייר מגדל (או את חלקו) שהגג שלו מתחיל ב-y0 ומתרחב ב-y גדל (בתוך
 // מערכת הקואורדינטות הנוכחית של הקונטקסט — יכולה להיות הפוכה, ראו
-// drawTowerSegment) לאורך availableHeight. תמיד ביחס הטבעי של התמונה —
-// **בלי מתיחה** — ברוחב TOWER_WIDTH קבוע (נגזר מ-w, לא מ-availableHeight):
+// drawTowerSegment) לאורך availableHeight, ביחידות d (d=0 בשפת הפער,
+// d=availableHeight בקצה המסך — תקרה למגדל עליון, קצה ה-canvas למגדל
+// תחתון). תמיד ביחס הטבעי — **בלי מתיחה בשום ציר, בשום תמונה** — ברוחב
+// TOWER_WIDTH קבוע (נגזר מ-w, לעולם לא מ-availableHeight).
 //
-// - ה-fill (tower_base.png) מצויר **ראשון, על כל availableHeight**,
-//   נחזר אנכית בלי מתיחה (אריח אחרון נחתך, לא נמתח). "מאחורי המגדל":
-//   מצויר לפני התמונה הראשית, כך שהיא פשוט מכסה אותו באזור שלה.
-// - התמונה הראשית מצוירת **מעליו**, בגובה הטבעי שלה (naturalDrawH),
-//   עוגנת ב-y0 (שפת הפער). אם היא קצרה מ-availableHeight — זה בדיוק מה
-//   שמשאיר את ה-fill גלוי בשארית (הצד הרחוק מהפער — לכיוון תקרה/רצפה).
-//   אם היא ארוכה ממנו — נחתכת (קיצוץ מקור, לא כיווץ): לוקחים רק את
-//   ה-sy=0 ועד כמה שנכנס, כך שהגג (sy=0) תמיד שלם, והבסיס (הקצה הרחוק)
-//   הוא שנחתך — בדיוק "מה שעובר את התקרה/הרצפה נחתך".
-function drawTowerFromGapEdge(img, fillImg, x, y0, w, availableHeight) {
-  const fillDrawH = fillImg.naturalHeight * (w / fillImg.naturalWidth);
-  let drawn = 0;
-  while (drawn < availableHeight - 0.01) {
-    const thisH = Math.min(fillDrawH, availableHeight - drawn);
-    const srcH = fillImg.naturalHeight * (thisH / fillDrawH);
-    towerImagesCtx.drawImage(fillImg, 0, 0, fillImg.naturalWidth, srcH, x, y0 + drawn, w, thisH);
-    drawn += thisH;
+// שני אזורים נפרדים לאורך d, לעולם לא חופפים חוץ מהחפיפה המכוונת שתוארה:
+//   [0, naturalDrawH]            — תמונת המגדל, מהגג (sy=0, תמיד שלם)
+//                                   ועד הבסיס (sy=הגדול ביותר, נחתך אם
+//                                   הוא עובר את availableHeight).
+//   [fillStart, availableHeight] — המלבן (tower_base.png), רק אם
+//                                   התמונה קצרה מ-availableHeight.
+// fillStart = naturalDrawH - bz (bz = TOWER_BASE_ZONE_SOURCE_PX בקנה
+// המידה של התמונה): המלבן מתחיל קצת *לפני* סוף תמונת המגדל, רק בגובה
+// אזור הבסיס המעוגל/המחודד שלה (0 במשולש) — כדי שלא יבצבץ רקע דרך
+// החור שמתחת לבסיס, ולעולם לא ליד גוף המגדל או משני צדי החוד.
+// המלבן מצויר **קודם** (כך שבתחום fillStart..naturalDrawH הוא מוסתר
+// מאחורי הבסיס האטום ונראה רק בחורים שלו), ואז תמונת המגדל **מעליו**.
+// המלבן מעוגן תמיד לקצה המסך (d=availableHeight — תקרה/רצפה), ומתרחב
+// לאחור לכיוון המגדל בעותקים שלמים; רק העותק הפנימי ביותר (הקרוב
+// למגדל) נחתך, ונשמר ממנו החלק הקרוב לקצה המסך (לא לתמונת המגדל).
+function drawTowerFromGapEdge(img, fillImg, x, y0, w, availableHeight, baseZoneSourcePx) {
+  const naturalDrawH = img.naturalHeight * (w / img.naturalWidth);
+
+  if (naturalDrawH < availableHeight) {
+    const bz = baseZoneSourcePx * (w / img.naturalWidth);
+    const fillStart = Math.max(0, naturalDrawH - bz);
+    const fillDrawH = fillImg.naturalHeight * (w / fillImg.naturalWidth);
+
+    let farD = availableHeight;
+    while (farD > fillStart + 0.01) {
+      const nearD = Math.max(fillStart, farD - fillDrawH);
+      const tileDrawH = farD - nearD;
+      const tileSrcH = fillImg.naturalHeight * (tileDrawH / fillDrawH);
+      const sy = fillImg.naturalHeight - tileSrcH; // שומר את הקצה הקרוב למסך, חותך את הקרוב למגדל
+      towerImagesCtx.drawImage(fillImg, 0, sy, fillImg.naturalWidth, tileSrcH, x, y0 + nearD, w, tileDrawH);
+      if (DEBUG_TOWERS) strokeDebugRect(x, y0 + nearD, w, tileDrawH, "#ff00ff");
+      farD = nearD;
+    }
+    if (DEBUG_TOWERS) strokeDebugLine(x, y0 + fillStart, w, "#00e5ff");
   }
 
-  const naturalDrawH = img.naturalHeight * (w / img.naturalWidth);
   const visibleH = Math.min(naturalDrawH, availableHeight);
   const srcH = img.naturalHeight * (visibleH / naturalDrawH);
   towerImagesCtx.drawImage(img, 0, 0, img.naturalWidth, srcH, x, y0, w, visibleH);
+  if (DEBUG_TOWERS) strokeDebugRect(x, y0, w, visibleH, "#39ff14");
+}
+
+// מסגרות דקות למצב ?debug=towers בלבד (ראו DEBUG_TOWERS) — ירוק סביב
+// תמונת המגדל עצמה, מגנטה סביב כל עותק של המלבן, ציאן בגובה fillStart.
+// מצוירות בתוך אותה מערכת-קואורדינטות מקומית (d) כמו שאר הפונקציה, כולל
+// תחת ה-translate/scale ההפוך של מגדל עליון — כך שהן תמיד מתאימות
+// למיקום האמיתי על המסך בלי חשבון נפרד.
+function strokeDebugRect(x, y, w, h, color) {
+  towerImagesCtx.save();
+  towerImagesCtx.strokeStyle = color;
+  towerImagesCtx.lineWidth = 1.2;
+  towerImagesCtx.strokeRect(x + 0.6, y + 0.6, w - 1.2, Math.max(0, h - 1.2));
+  towerImagesCtx.restore();
+}
+
+function strokeDebugLine(x, y, w, color) {
+  towerImagesCtx.save();
+  towerImagesCtx.strokeStyle = color;
+  towerImagesCtx.lineWidth = 1;
+  towerImagesCtx.beginPath();
+  towerImagesCtx.moveTo(x, y);
+  towerImagesCtx.lineTo(x + w, y);
+  towerImagesCtx.stroke();
+  towerImagesCtx.restore();
 }
 
 // --- רקע: תמונת עיר+שמיים אחת (אין שכבת כביש נפרדת — ראו design/SPEC.md) ---

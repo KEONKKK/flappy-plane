@@ -1,0 +1,290 @@
+[
+  {
+    "shape": "round",
+    "side": "top",
+    "regime": "A-crop",
+    "L": 120,
+    "overlay": true,
+    "file": "round-top-A-crop-overlay.png"
+  },
+  {
+    "shape": "round",
+    "side": "bottom",
+    "regime": "A-crop",
+    "L": 120,
+    "overlay": true,
+    "file": "round-bottom-A-crop-overlay.png"
+  },
+  {
+    "shape": "round",
+    "side": "top",
+    "regime": "B-singleFill",
+    "L": 350,
+    "overlay": true,
+    "file": "round-top-B-singleFill-overlay.png"
+  },
+  {
+    "shape": "round",
+    "side": "bottom",
+    "regime": "B-singleFill",
+    "L": 350,
+    "overlay": true,
+    "file": "round-bottom-B-singleFill-overlay.png"
+  },
+  {
+    "shape": "round",
+    "side": "top",
+    "regime": "C-multiFill",
+    "L": 550,
+    "overlay": true,
+    "file": "round-top-C-multiFill-overlay.png"
+  },
+  {
+    "shape": "round",
+    "side": "bottom",
+    "regime": "C-multiFill",
+    "L": 550,
+    "overlay": true,
+    "file": "round-bottom-C-multiFill-overlay.png"
+  },
+  {
+    "shape": "square",
+    "side": "top",
+    "regime": "A-crop",
+    "L": 115,
+    "overlay": true,
+    "file": "square-top-A-crop-overlay.png"
+  },
+  {
+    "shape": "square",
+    "side": "bottom",
+    "regime": "A-crop",
+    "L": 115,
+    "overlay": true,
+    "file": "square-bottom-A-crop-overlay.png"
+  },
+  {
+    "shape": "square",
+    "side": "top",
+    "regime": "B-singleFill",
+    "L": 350,
+    "overlay": true,
+    "file": "square-top-B-singleFill-overlay.png"
+  },
+  {
+    "shape": "square",
+    "side": "bottom",
+    "regime": "B-singleFill",
+    "L": 350,
+    "overlay": true,
+    "file": "square-bottom-B-singleFill-overlay.png"
+  },
+  {
+    "shape": "square",
+    "side": "top",
+    "regime": "C-multiFill",
+    "L": 550,
+    "overlay": true,
+    "file": "square-top-C-multiFill-overlay.png"
+  },
+  {
+    "shape": "square",
+    "side": "bottom",
+    "regime": "C-multiFill",
+    "L": 550,
+    "overlay": true,
+    "file": "square-bottom-C-multiFill-overlay.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "top",
+    "regime": "A-crop",
+    "L": 100,
+    "overlay": true,
+    "file": "triangle-top-A-crop-overlay.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "bottom",
+    "regime": "A-crop",
+    "L": 100,
+    "overlay": true,
+    "file": "triangle-bottom-A-crop-overlay.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "top",
+    "regime": "B-singleFill",
+    "L": 300,
+    "overlay": true,
+    "file": "triangle-top-B-singleFill-overlay.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "bottom",
+    "regime": "B-singleFill",
+    "L": 300,
+    "overlay": true,
+    "file": "triangle-bottom-B-singleFill-overlay.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "top",
+    "regime": "C-multiFill",
+    "L": 500,
+    "overlay": true,
+    "file": "triangle-top-C-multiFill-overlay.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "bottom",
+    "regime": "C-multiFill",
+    "L": 500,
+    "overlay": true,
+    "file": "triangle-bottom-C-multiFill-overlay.png"
+  },
+  {
+    "shape": "round",
+    "side": "top",
+    "regime": "A-crop",
+    "L": 120,
+    "overlay": false,
+    "file": "round-top-A-crop-clean.png"
+  },
+  {
+    "shape": "round",
+    "side": "bottom",
+    "regime": "A-crop",
+    "L": 120,
+    "overlay": false,
+    "file": "round-bottom-A-crop-clean.png"
+  },
+  {
+    "shape": "round",
+    "side": "top",
+    "regime": "B-singleFill",
+    "L": 350,
+    "overlay": false,
+    "file": "round-top-B-singleFill-clean.png"
+  },
+  {
+    "shape": "round",
+    "side": "bottom",
+    "regime": "B-singleFill",
+    "L": 350,
+    "overlay": false,
+    "file": "round-bottom-B-singleFill-clean.png"
+  },
+  {
+    "shape": "round",
+    "side": "top",
+    "regime": "C-multiFill",
+    "L": 550,
+    "overlay": false,
+    "file": "round-top-C-multiFill-clean.png"
+  },
+  {
+    "shape": "round",
+    "side": "bottom",
+    "regime": "C-multiFill",
+    "L": 550,
+    "overlay": false,
+    "file": "round-bottom-C-multiFill-clean.png"
+  },
+  {
+    "shape": "square",
+    "side": "top",
+    "regime": "A-crop",
+    "L": 115,
+    "overlay": false,
+    "file": "square-top-A-crop-clean.png"
+  },
+  {
+    "shape": "square",
+    "side": "bottom",
+    "regime": "A-crop",
+    "L": 115,
+    "overlay": false,
+    "file": "square-bottom-A-crop-clean.png"
+  },
+  {
+    "shape": "square",
+    "side": "top",
+    "regime": "B-singleFill",
+    "L": 350,
+    "overlay": false,
+    "file": "square-top-B-singleFill-clean.png"
+  },
+  {
+    "shape": "square",
+    "side": "bottom",
+    "regime": "B-singleFill",
+    "L": 350,
+    "overlay": false,
+    "file": "square-bottom-B-singleFill-clean.png"
+  },
+  {
+    "shape": "square",
+    "side": "top",
+    "regime": "C-multiFill",
+    "L": 550,
+    "overlay": false,
+    "file": "square-top-C-multiFill-clean.png"
+  },
+  {
+    "shape": "square",
+    "side": "bottom",
+    "regime": "C-multiFill",
+    "L": 550,
+    "overlay": false,
+    "file": "square-bottom-C-multiFill-clean.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "top",
+    "regime": "A-crop",
+    "L": 100,
+    "overlay": false,
+    "file": "triangle-top-A-crop-clean.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "bottom",
+    "regime": "A-crop",
+    "L": 100,
+    "overlay": false,
+    "file": "triangle-bottom-A-crop-clean.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "top",
+    "regime": "B-singleFill",
+    "L": 300,
+    "overlay": false,
+    "file": "triangle-top-B-singleFill-clean.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "bottom",
+    "regime": "B-singleFill",
+    "L": 300,
+    "overlay": false,
+    "file": "triangle-bottom-B-singleFill-clean.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "top",
+    "regime": "C-multiFill",
+    "L": 500,
+    "overlay": false,
+    "file": "triangle-top-C-multiFill-clean.png"
+  },
+  {
+    "shape": "triangle",
+    "side": "bottom",
+    "regime": "C-multiFill",
+    "L": 500,
+    "overlay": false,
+    "file": "triangle-bottom-C-multiFill-clean.png"
+  }
+]
