@@ -25,7 +25,6 @@ html, body {
 }
 
 .pixel-text,
-.pixel-logo,
 .tv-physical-btn {
   font-family: "Press Start 2P", "Segoe UI", Arial, sans-serif;
 }
@@ -183,16 +182,25 @@ canvas#game {
 }
 
 .pixel-logo {
-  font-size: 1.3rem;
-  line-height: 1.6;
-  color: #ffd166;
-  text-shadow: 3px 3px 0 #c43c3c, 0 0 18px rgba(255, 209, 102, 0.4);
+  width: min(280px, 78%);
+  height: auto;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.4));
+}
+
+/* מסך הכניסה (GIF) ממלא את כל אזור המשחק, מתחת לשאר תוכן מסך הפתיחה */
+.entrance-gif {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  z-index: -1;
 }
 
 /* לוגו מצומצם למסך הסיום — לצד "המטוס התרסק" והניקוד, לא תחרות על תשומת הלב */
 .pixel-logo-small {
-  font-size: 0.7rem;
-  line-height: 1.5;
+  width: min(170px, 55%);
 }
 
 .overlay p {

@@ -2,7 +2,7 @@
 // שהמשחק יעבוד גם בלי אינטרנט, ומתעדכן כשה-CACHE_VERSION משתנה.
 "use strict";
 
-const CACHE_VERSION = "v15";
+const CACHE_VERSION = "v16";
 const CACHE_NAME = `flappy-plane-${CACHE_VERSION}`;
 
 // רק קבצים מאותו מקור — קבצים חיצוניים (כמו גופן Google Fonts) נכנסים
@@ -15,6 +15,7 @@ const APP_SHELL = [
   "./game.js",
   "./manifest.json",
   "./assets/background-city.png",
+  "./assets/headline.png",
   "./assets/tower-round.png",
   "./assets/tower-square.png",
   "./assets/tower-triangle.png",
@@ -76,6 +77,17 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      // רשת נכשלת לגמרי (לא 404 — זו תשובה תקינה שרק מועברת כמות שהיא
+      // למעלה, לא מגיעה לכאן בכלל; זה true network failure, למשל אופליין):
+      // נופלים חזרה למטמון. אבל caches.match() עצמו עלול לפתור ל-undefined
+      // אם שום דבר לא היה שם — ו-respondWith עם undefined גורם לדפדפן
+      // לזרוק "FetchEvent resulted in a network error response" אדום
+      // בקונסול, שלא קשור בכלל לנכס הספציפי שנכשל. ה-Response המינימלי
+      // כאן מבטיח ש-respondWith תמיד מקבל Response אמיתי, לא משנה מה.
+      .catch(() =>
+        caches
+          .match(event.request)
+          .then((cached) => cached || new Response(null, { status: 504, statusText: "Offline and not cached" }))
+      )
   );
 });
