@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Beeper shell</title>
+<style>
+/* ===== Beeper shell, design 1 (translucent smoke). Every size derives from --dev-w ===== */
+:root{
+  --dev-ratio:0.7045;                                   /* device height / device width */
+  --dev-w:min(calc(96vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)), calc(94dvh / var(--dev-ratio)), 1200px);
+  --pad-x:calc(var(--dev-w)*0.03);
+  --frame:calc(var(--dev-w)*0.012);
+  --top-h:calc(var(--dev-w)*0.055);
+  --keys-h:calc(var(--dev-w)*0.085);
+  --pad-b:calc(var(--dev-w)*0.025);
+  --key-w:calc(var(--dev-w)*0.13);
+  --key-h:calc(var(--dev-w)*0.04);
+  --key-gap:calc(var(--dev-w)*0.02);
+  --body:#1b1c1f; --frame-c:#0c0d0f; --key:#26282c; --ink:#7d838a; --label:#9aa0a6; --page:#101114;
+}
+html,body{margin:0;height:100%;background:var(--page);overflow:hidden;overscroll-behavior:none}
+body{display:grid;place-items:center;min-height:100dvh}
+.beeper{
+  width:var(--dev-w);box-sizing:border-box;padding:0 var(--pad-x) var(--pad-b);
+  border-radius:calc(var(--dev-w)*0.055);
+  background:
+    radial-gradient(120% 90% at 50% 0%,rgba(255,255,255,.07),rgba(255,255,255,0) 55%),
+    linear-gradient(#25262a,var(--body) 38%,#141517);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.14),
+    inset 0 calc(var(--dev-w)*-0.006) calc(var(--dev-w)*0.012) rgba(0,0,0,.65),
+    inset calc(var(--dev-w)*0.004) 0 calc(var(--dev-w)*0.008) rgba(255,255,255,.03),
+    0 calc(var(--dev-w)*0.03) calc(var(--dev-w)*0.06) rgba(0,0,0,.6);
+  -webkit-user-select:none;user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent;
+}
+.beeper-top{height:var(--top-h);display:flex;align-items:center;justify-content:space-between;padding:0 calc(var(--dev-w)*0.012)}
+.beeper-label{font:italic 800 calc(var(--dev-w)*0.024)/1 "Helvetica Neue",Arial,sans-serif;letter-spacing:.06em;color:var(--label);text-shadow:0 1px 0 rgba(0,0,0,.8)}
+.beeper-status{display:flex;align-items:center;gap:calc(var(--dev-w)*0.014)}
+.beeper-grille{display:grid;grid-template-columns:repeat(6,calc(var(--dev-w)*0.006));gap:calc(var(--dev-w)*0.005)}
+.beeper-grille i{width:calc(var(--dev-w)*0.006);height:calc(var(--dev-w)*0.006);border-radius:50%;background:#08090a;box-shadow:0 1px 0 rgba(255,255,255,.08)}
+.beeper-led{width:calc(var(--dev-w)*0.012);height:calc(var(--dev-w)*0.012);border-radius:50%;background:radial-gradient(circle at 35% 35%,#ff8a7a,#b3261a 60%,#5c120c);box-shadow:0 0 calc(var(--dev-w)*0.008) rgba(255,60,40,.55)}
+.beeper-screen{
+  padding:var(--frame);border-radius:calc(var(--dev-w)*0.022);
+  background:linear-gradient(160deg,#1a1b1e,var(--frame-c) 30%,#050506);
+  box-shadow:inset 0 0 calc(var(--dev-w)*0.006) rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.10),0 1px 0 rgba(255,255,255,.06);
+}
+.beeper-glass{position:relative;aspect-ratio:16/9;overflow:hidden;border-radius:calc(var(--dev-w)*0.012);background:#000}
+.beeper-glass > canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.beeper-glass::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:50;
+  background:linear-gradient(118deg,rgba(255,255,255,.10) 0%,rgba(255,255,255,.03) 22%,rgba(255,255,255,0) 34%);
+  box-shadow:inset 0 0 calc(var(--dev-w)*0.01) rgba(0,0,0,.55)}
+.beeper-keys{height:var(--keys-h);display:flex;align-items:center;justify-content:center;gap:var(--key-gap);pointer-events:none}
+.beeper-key{
+  width:var(--key-w);height:var(--key-h);border-radius:calc(var(--dev-w)*0.008);
+  display:grid;place-items:center;color:var(--ink);
+  font:700 calc(var(--dev-w)*0.022)/1 "Helvetica Neue",Arial,sans-serif;letter-spacing:.04em;
+  background:linear-gradient(#303236,var(--key) 45%,#1d1f22);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset 0 -1px 0 rgba(0,0,0,.6),0 calc(var(--dev-w)*0.003) calc(var(--dev-w)*0.005) rgba(0,0,0,.7),0 0 0 1px #0b0c0d;
+}
+
+/* design 1 overrides */
+.beeper{background:
+  repeating-linear-gradient(90deg,rgba(120,220,200,.05) 0 2px,transparent 2px 22px),
+  repeating-linear-gradient(0deg,rgba(120,220,200,.04) 0 2px,transparent 2px 30px),
+  radial-gradient(110% 80% at 30% 0%,rgba(190,235,230,.22),rgba(60,90,95,.10) 60%),
+  linear-gradient(#3b4a4e,#1d2a2e 55%,#121b1e);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.28),inset 0 0 calc(var(--dev-w)*0.03) rgba(160,240,225,.12),inset 0 calc(var(--dev-w)*-0.008) calc(var(--dev-w)*0.014) rgba(0,0,0,.6),0 calc(var(--dev-w)*0.03) calc(var(--dev-w)*0.06) rgba(0,0,0,.6);
+  border-radius:calc(var(--dev-w)*0.09)}
+.beeper-label{color:#bfeee6;font-style:normal;letter-spacing:.22em;text-transform:uppercase;font-size:calc(var(--dev-w)*0.019)}
+.beeper-led{background:radial-gradient(circle at 35% 35%,#b8fff0,#1fbfa0 60%,#0a5a4c);box-shadow:0 0 calc(var(--dev-w)*0.01) rgba(60,255,210,.7)}
+.beeper-screen{border-radius:calc(var(--dev-w)*0.04);background:linear-gradient(160deg,#27373a,#0d1415)}
+.beeper-glass{border-radius:calc(var(--dev-w)*0.03)}
+.beeper-key{width:calc(var(--dev-w)*0.052);height:calc(var(--dev-w)*0.052);border-radius:50%;color:#bfeee6;background:radial-gradient(circle at 35% 30%,#5d7377,#2a393c 60%,#172124);font-size:calc(var(--dev-w)*0.018)}
+.beeper-key:nth-child(4){width:calc(var(--dev-w)*0.16);border-radius:calc(var(--dev-w)*0.03)}
+.beeper-keys{gap:calc(var(--dev-w)*0.035)}
+
+/* ===== phone ===== */
+/* portrait phone: a small hint under the device, never in the way of the game */
+.rotate-hint{display:none;position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 7dvh);text-align:center;pointer-events:none;
+  font:600 14px/1.3 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:#7fb9ae;letter-spacing:.02em}
+@media (orientation:portrait) and (max-width:600px){ .rotate-hint{display:block} }
+/* landscape phone (short screen): slimmer top strip and key row so the game screen gets bigger */
+@media (orientation:landscape) and (max-height:480px){
+  :root{
+    --dev-ratio:0.627;
+    --dev-w:min(calc(96vw - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)), calc(96dvh / var(--dev-ratio)));
+    --top-h:calc(var(--dev-w)*0.030); --keys-h:calc(var(--dev-w)*0.046); --pad-b:calc(var(--dev-w)*0.012);
+  }
+  .beeper{border-radius:calc(var(--dev-w)*0.06)}
+  .beeper-label{font-size:calc(var(--dev-w)*0.014)}
+  .beeper-key{width:calc(var(--dev-w)*0.032);height:calc(var(--dev-w)*0.032);font-size:calc(var(--dev-w)*0.012)}
+  .beeper-key:nth-child(4){width:calc(var(--dev-w)*0.105)}
+  .beeper-grille{transform:scale(.7);transform-origin:right center}
+}
+</style>
+</head>
+<body>
+<!-- Reference for the beeper shell (design 1). Copy the markup and the CSS as they are.
+     The game's existing elements (canvas layers, start-screen layers, score, build number)
+     go inside .beeper-glass with their ids unchanged. -->
+<div class="beeper">
+  <div class="beeper-top">
+    <span class="beeper-label">Beeper</span>
+    <span class="beeper-status">
+      <span class="beeper-grille" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="beeper-led" aria-hidden="true"></span>
+    </span>
+  </div>
+  <div class="beeper-screen">
+    <div class="beeper-glass">
+      <!-- GAME ELEMENTS GO HERE -->
+    </div>
+  </div>
+  <div class="beeper-keys" aria-hidden="true">
+    <span class="beeper-key">&#9650;</span>
+    <span class="beeper-key">&#9660;</span>
+    <span class="beeper-key">&#8617;&#xFE0E;</span>
+    <span class="beeper-key">OK</span>
+  </div>
+</div>
+<div class="rotate-hint" dir="rtl" aria-hidden="true">&#8635; סובבו את הטלפון למסך גדול יותר</div>
+</body>
+</html>
