@@ -1,0 +1,14 @@
+node_modules
+.git
+tools
+design/verify
+design/music
+design/SPEC.md
+design/raw/FILL.png
+design/raw/HEADLINE.png
+design/raw/AR924_pager.jpg
+design/raw/rk69RCwaC_639_65_642_361_0_x-large.avif
+erver 8000
+package.json
+package-lock.json
+.gitignore
