@@ -7,10 +7,34 @@
 // המלא על למה זה קובץ נפרד ולמה זה *לא* הערך הסופי שמוצג (יש עדיפות
 // לשאול את ה-Service Worker הפעיל בפועל, כשיש כזה — ראו למטה).
 
+// ZOOM: מקטין את העולם הלוגי (גובה+רוחב) כדי שהזכוכית (גודל CSS קבוע)
+// תציג פחות עולם, בגדלים גדולים יותר — בלי לגעת בשום ערך פיזיקה
+// (GRAVITY/JUMP_FORCE/TOWER_SPEED/TOWER_GAP/... לא תלויים בגודל העולם).
+// ברירת המחדל 1 שומרת WIDTH=1067/HEIGHT=600 בדיוק כמו תמיד. נקרא פעם
+// אחת כאן, לפני CONFIG — ?zoom= בכתובת, ערכים מותרים בלבד (1/1.25/1.35/1.5).
+const BASE_HEIGHT = 600;
+function readZoom() {
+  const raw = new URLSearchParams(location.search).get("zoom");
+  if (raw === "1.25") return 1.25;
+  if (raw === "1.35") return 1.35;
+  if (raw === "1.5") return 1.5;
+  return 1;
+}
+const ZOOM = readZoom();
+const COMPUTED_HEIGHT = Math.round(BASE_HEIGHT / ZOOM);
+const COMPUTED_WIDTH = Math.round(COMPUTED_HEIGHT * 16 / 9);
+
+// יחס המרווח האנכי הבטוח (spawnTower, למרכז הרווח של מגדל חדש) לגובה
+// העולם — היה קבוע 60 (לא תלוי בגובה), מה שצמצם את טווח גבהי המגדלים
+// בזום גבוה (68px בזום 1.5, כמעט גובה קפיצה אחד בלבד — ראו ניתוח
+// המשתמש). 0.1 נותן בדיוק 60 ב-ZOOM=1 (600*0.1), כך שברירת המחדל לא
+// משתנה כלל. נמצא בשימוש יחיד, ב-spawnTower() למטה.
+const TOWER_MARGIN_RATIO = 0.1;
+
 // כל הפרמטרים שמשפיעים על תחושת המשחק נמצאים כאן, במקום אחד.
 const CONFIG = {
-  WIDTH: 1067,
-  HEIGHT: 600,
+  WIDTH: COMPUTED_WIDTH,
+  HEIGHT: COMPUTED_HEIGHT,
 
   GRAVITY: 0.5,          // כוח משיכה על המטוס, פיקסלים/פריים^2 (יחסי ל-60fps)
   JUMP_FORCE: -8,         // מהירות אנכית מיידית בלחיצה (שלילי = למעלה)
@@ -231,6 +255,7 @@ if ("serviceWorker" in navigator && IS_LOCAL_HOST) {
 function reportBuildVersion() {
   const show = (version, source) => {
     console.log(`Flappy Plane build: ${version} (${source})`);
+    console.log(`ZOOM=${ZOOM} (WIDTH=${CONFIG.WIDTH}, HEIGHT=${CONFIG.HEIGHT})`);
     const el = document.getElementById("build-marker");
     if (el) el.textContent = version;
   };
@@ -747,7 +772,7 @@ function spawnTower() {
     return;
   }
 
-  const margin = 60;
+  const margin = Math.round(CONFIG.HEIGHT * TOWER_MARGIN_RATIO);
   const half = CONFIG.TOWER_GAP / 2;
   const floorY = CONFIG.HEIGHT - CONFIG.GROUND_HEIGHT;
   const minGapY = margin + half;
