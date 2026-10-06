@@ -12,4 +12,4 @@
 // הזה — הוא שומר את CACHE_VERSION כמחרוזת מפורשת משלו, ותמיד צריך
 // להתעדכן **יחד** עם BUILD_VERSION כאן (לאותו ערך בדיוק) בכל באמפ גרסה.
 // tools/check-assets.js נכשל אם השניים לא תואמים.
-const BUILD_VERSION = "v27";
+const BUILD_VERSION = "v32";
