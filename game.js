@@ -75,22 +75,37 @@ const PIXEL_SCALE = 0.35;
   ctx.scale(PIXEL_SCALE, PIXEL_SCALE);
 })();
 
+// RENDER_SCALE: מכפיל הרזולוציה הפנימית של שלוש שכבות הרקע/מגדלים/מטוס
+// (bg-city/tower-images/plane-layer — לא canvas#game, שנשאר ב-PIXEL_SCALE
+// הקבוע למעלה, זה האפקט הפיקסל-ארט המכוון ולא חלק מהבעיה כאן). היה
+// קבוע 3.5 (BG_SCALE) — 1067×600×3.5 יצא 3735×2100 בפועל, בעוד התצוגה
+// בפועל בכל גודל מסך נמדדה סביב 900-950×500-530 בלבד (ראו טבלת המדידה
+// בדוח) — פי ~4 יותר רזולוציה ממה שנראה אי פעם על המסך, בשתי שכבות
+// עם החלקה (imageSmoothingQuality=high) שמשלמת על כל פיקסל מיותר הזה
+// בכל פריים. ברירת מחדל חדשה 1.5 (1600×900 בפועל). ?rs=1 / ?rs=1.5 /
+// ?rs=2 בכתובת דורס לבדיקת איכות מול חלקות בעין, בטעינה הנוכחית בלבד.
+function readRenderScale() {
+  const raw = new URLSearchParams(location.search).get("rs");
+  if (raw === "1") return 1;
+  if (raw === "1.5") return 1.5;
+  if (raw === "2") return 2;
+  return 1.5;
+}
+const RENDER_SCALE = readRenderScale();
+
 // שכבת רקע נפרדת, ברזולוציה גבוהה והחלקה רגילה — ראו ההסבר ב-style.css
 // ליד canvas#bg-city. תמונת הרקע היא תצלום מפורט (חלונות, פרטים קטנים);
 // אם הייתה נדגמת מחדש יחד עם שאר המשחק לתוך מאגר ה-140×210 הזעיר למעלה
 // (כמו שהיה קודם), ה-downsample ב-nearest-neighbor היה יוצר רעש/טשטוש
-// (moiré) על כל פרט דחוס. 3.5x תואם את תקרת הרוחב של מסגרת הטלוויזיה
-// ב-CSS (700px) כך שגם במסך רטינה היחס בין פיקסלי המקור לפיקסלי המסך
-// נשאר קרוב ל-1:1 — חד בלי להיות בזבזני.
+// (moiré) על כל פרט דחוס.
 const bgCanvas = document.getElementById("bg-city");
 const bgCtx = bgCanvas.getContext("2d");
-const BG_SCALE = 3.5;
 (function setupBackgroundCanvas() {
-  bgCanvas.width = Math.round(CONFIG.WIDTH * BG_SCALE);
-  bgCanvas.height = Math.round(CONFIG.HEIGHT * BG_SCALE);
+  bgCanvas.width = Math.round(CONFIG.WIDTH * RENDER_SCALE);
+  bgCanvas.height = Math.round(CONFIG.HEIGHT * RENDER_SCALE);
   bgCtx.imageSmoothingEnabled = true;
   bgCtx.imageSmoothingQuality = "high";
-  bgCtx.scale(BG_SCALE, BG_SCALE);
+  bgCtx.scale(RENDER_SCALE, RENDER_SCALE);
 })();
 
 // שכבה נוספת לאותה סיבה בדיוק: מגדלים שמצוירים מתמונה (לא וקטור) —
@@ -99,11 +114,11 @@ const BG_SCALE = 3.5;
 const towerImagesCanvas = document.getElementById("tower-images");
 const towerImagesCtx = towerImagesCanvas.getContext("2d");
 (function setupTowerImagesCanvas() {
-  towerImagesCanvas.width = Math.round(CONFIG.WIDTH * BG_SCALE);
-  towerImagesCanvas.height = Math.round(CONFIG.HEIGHT * BG_SCALE);
+  towerImagesCanvas.width = Math.round(CONFIG.WIDTH * RENDER_SCALE);
+  towerImagesCanvas.height = Math.round(CONFIG.HEIGHT * RENDER_SCALE);
   towerImagesCtx.imageSmoothingEnabled = true;
   towerImagesCtx.imageSmoothingQuality = "high";
-  towerImagesCtx.scale(BG_SCALE, BG_SCALE);
+  towerImagesCtx.scale(RENDER_SCALE, RENDER_SCALE);
 })();
 
 // שכבה רביעית לאותה סיבה בדיוק כמו הרקע/המגדלים: נכס המטוס
@@ -115,10 +130,10 @@ const towerImagesCtx = towerImagesCanvas.getContext("2d");
 const planeCanvas = document.getElementById("plane-layer");
 const planeCtx = planeCanvas.getContext("2d");
 (function setupPlaneCanvas() {
-  planeCanvas.width = Math.round(CONFIG.WIDTH * BG_SCALE);
-  planeCanvas.height = Math.round(CONFIG.HEIGHT * BG_SCALE);
+  planeCanvas.width = Math.round(CONFIG.WIDTH * RENDER_SCALE);
+  planeCanvas.height = Math.round(CONFIG.HEIGHT * RENDER_SCALE);
   planeCtx.imageSmoothingEnabled = false;
-  planeCtx.scale(BG_SCALE, BG_SCALE);
+  planeCtx.scale(RENDER_SCALE, RENDER_SCALE);
 })();
 
 // מעגל קואורדינטה לוגית לרשת הפיקסלים האמיתית של מאגר הציור, כדי שהמטוס
