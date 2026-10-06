@@ -21,59 +21,61 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="tv">
-    <div class="tv-frame">
-      <div class="tv-bezel">
-        <div id="game-wrap">
-          <canvas id="bg-city" aria-hidden="true"></canvas>
-          <canvas id="tower-images" aria-hidden="true"></canvas>
-          <canvas id="plane-layer" aria-hidden="true"></canvas>
-          <canvas id="game" width="400" height="600"></canvas>
+  <div class="beeper">
+    <div class="beeper-top" dir="ltr">
+      <span class="beeper-label">Beeper</span>
+      <span class="beeper-status">
+        <span class="beeper-grille" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="beeper-led" aria-hidden="true"></span>
+      </span>
+    </div>
+    <div class="beeper-screen">
+      <div class="beeper-glass">
+        <canvas id="bg-city" aria-hidden="true"></canvas>
+        <canvas id="tower-images" aria-hidden="true"></canvas>
+        <canvas id="plane-layer" aria-hidden="true"></canvas>
+        <canvas id="game" width="400" height="600"></canvas>
 
-          <div id="loading-screen" class="overlay">
-            <p class="loading-text">טוען…</p>
-          </div>
-
-          <div id="start-screen" class="overlay">
-            <img class="entrance-bg" src="assets/entrance-poster.png" alt="" aria-hidden="true">
-            <img class="entrance-main" src="assets/entrance-poster.png" alt="FLAPPY PLANE — PORTAL TO TEL AVIV" fetchpriority="high">
-            <div class="entrance-ui">
-              <p class="hint">קליק / רווח / נגיעה כדי להמריא</p>
-              <button id="start-btn" class="main-btn">התחל משחק</button>
-              <button id="install-btn" class="install-btn hidden">⬇ התקן אפליקציה</button>
-              <p id="ios-install-hint" class="hint hidden">
-                להתקנה על המסך הבית: הקש על כפתור השיתוף <span class="share-icon">⎋</span>
-                ואז "הוסף למסך הבית"
-              </p>
-            </div>
-            <span id="build-marker" class="build-marker"></span>
-          </div>
-
-          <div id="gameover-screen" class="overlay hidden">
-            <img class="pixel-logo pixel-logo-small" src="assets/headline.png" alt="FLAPPY PLANE">
-            <h1>המטוס התרסק</h1>
-            <p>ניקוד: <span id="final-score">0</span></p>
-            <p>שיא: <span id="high-score">0</span></p>
-            <button id="retry-btn" class="main-btn">נסה שוב</button>
-          </div>
-
-          <div id="hud" class="hidden">
-            <span id="hud-score" class="pixel-text">SCORE: <span id="score">0</span></span>
-          </div>
-
-          <div id="screen-glare"></div>
-          <div id="scanlines"></div>
+        <div id="loading-screen" class="overlay">
+          <p class="loading-text">טוען…</p>
         </div>
-      </div>
 
-      <div class="tv-controls">
-        <button id="tv-start-btn" class="tv-physical-btn pixel-text" aria-label="התחל / נסה שוב">START</button>
-        <div class="tv-vents">
-          <span></span><span></span><span></span><span></span>
+        <div id="start-screen" class="overlay">
+          <img class="entrance-bg" src="assets/entrance-poster.png" alt="" aria-hidden="true">
+          <img class="entrance-main" src="assets/entrance-poster.png" alt="FLAPPY PLANE — PORTAL TO TEL AVIV" fetchpriority="high">
+          <div class="entrance-ui">
+            <p class="hint">קליק / רווח / נגיעה כדי להמריא</p>
+            <button id="start-btn" class="main-btn">התחל משחק</button>
+            <button id="install-btn" class="install-btn hidden">⬇ התקן אפליקציה</button>
+            <p id="ios-install-hint" class="hint hidden">
+              להתקנה על המסך הבית: הקש על כפתור השיתוף <span class="share-icon">⎋</span>
+              ואז "הוסף למסך הבית"
+            </p>
+          </div>
+          <span id="build-marker" class="build-marker"></span>
+        </div>
+
+        <div id="gameover-screen" class="overlay hidden">
+          <img class="pixel-logo pixel-logo-small" src="assets/headline.png" alt="FLAPPY PLANE">
+          <h1>המטוס התרסק</h1>
+          <p>ניקוד: <span id="final-score">0</span></p>
+          <p>שיא: <span id="high-score">0</span></p>
+          <button id="retry-btn" class="main-btn">נסה שוב</button>
+        </div>
+
+        <div id="hud" class="hidden">
+          <span id="hud-score" class="pixel-text">SCORE: <span id="score">0</span></span>
         </div>
       </div>
     </div>
+    <div class="beeper-keys" aria-hidden="true" dir="ltr">
+      <span class="beeper-key">&#9650;</span>
+      <span class="beeper-key">&#9660;</span>
+      <span class="beeper-key">&#8617;&#xFE0E;</span>
+      <span class="beeper-key">OK</span>
+    </div>
   </div>
+  <div class="rotate-hint" dir="rtl" aria-hidden="true">&#8635; סובבו את הטלפון למסך גדול יותר</div>
 
   <script src="version.js"></script>
   <script src="game.js"></script>

@@ -519,9 +519,12 @@ if (!isRunningStandalone()) {
   }
 }
 
-// כפתור ה-START הפיזי על מארז הטלוויזיה — אותה פעולה כמו קליק על המסך.
-const tvStartBtn = document.getElementById("tv-start-btn");
-tvStartBtn.addEventListener("click", (e) => {
+// נגיעה בגוף הביפר או בכפתורים המצוירים שעליו — אותה פעולה כמו קליק על
+// המסך. נגיעה בתוך .beeper-glass (קנבס/כפתורי המסכים) כבר מטופלת על ידי
+// המאזינים שלהם למעלה; לא כופלים כאן את הפעולה עליהם.
+const beeperBody = document.querySelector(".beeper");
+beeperBody.addEventListener("click", (e) => {
+  if (e.target.closest(".beeper-glass")) return;
   e.preventDefault();
   handlePrimaryAction();
 });
