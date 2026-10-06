@@ -184,56 +184,23 @@ canvas#game {
   filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.4));
 }
 
-/* מסך הכניסה: ENTRANCE.gif הוא 1280x720 (16:9, לרוחב), אזור המסך הוא
-   2:3 (לאורך) — object-fit:contain היה משאיר פס צר באמצע עם שטח ריק
-   גדול מעליו ומתחתיו, והכותרת/הכיתוב היו קטנים מדי. שלוש שכבות, כל
-   הערכים הניתנים לכוונון כמשתני CSS כאן במקום אחד:
-   - entrance-bg: אותו קובץ, cover+blur+darken+scale קטן, ממלא את כל
-     האזור בלי שוליים ריקים (לא חותך אף תוכן חשוב כי הוא רק "רקע צבעוני").
-   - entrance-main: אותו קובץ, חד, ברוחב מלא. aspect-ratio 1000/720
-     (צר מה-16:9 המקורי) + object-fit:cover גורם לדפדפן לבצע בדיוק את
-     החיתוך הרצוי (11% מכל צד, 78% מהרוחב נשארים, בגובה מלא) בלי שום
-     חישוב ידני בפיקסלים — נמדד ואומת שהכיתוב "PORTAL TO TEL AVIV"
-     (הרחב ביותר, x=190..1088 מתוך 1280) נשאר עם ~3.8% שוליים משני
-     הצדדים אחרי החיתוך הזה (נדרש מינימום 3%).
-   ממורכז אנכית ב-44% מגובה המסך (entrance-center) — לא 50%, כדי להשאיר
-   מקום לממשק מתחתיו (entrance-ui, שטח פנוי: 44%+24%=68% ואילך). */
-#start-screen {
-  --entrance-crop: 1000 / 720;
-  --entrance-center: 44%;
-  --entrance-bg-blur: 6px;
-  --entrance-bg-brightness: 55%;
-  --entrance-bg-scale: 1.1;
-}
-
-.entrance-bg {
+/* מסך הכניסה: ENTRANCE.gif הוא 1280x720 (16:9) וזכוכית המכשיר (מעטפת
+   הביפר) היא גם 16:9 (aspect-ratio:16/9 על .beeper-glass) — אותו יחס,
+   אז שכבה אחת בלבד, ממלאת את הזכוכית במלואה, בלי חיתוך/טשטוש/מרכוז
+   מיוחד שהיו נחוצים כשהמסך היה 2:3 (לאורך). */
+.entrance-main {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center;
-  filter: blur(var(--entrance-bg-blur)) brightness(var(--entrance-bg-brightness));
-  transform: scale(var(--entrance-bg-scale));
-  z-index: 0;
-}
-
-.entrance-main {
-  position: absolute;
-  left: 0;
-  top: var(--entrance-center);
-  width: 100%;
-  aspect-ratio: var(--entrance-crop);
-  transform: translateY(-50%);
-  object-fit: cover;
-  object-position: center;
   image-rendering: pixelated;
   z-index: 1;
 }
 
-/* שטח הממשק מתחת לשכבה הראשית (שמסתיימת ב-44%+24%=68%, ראו למעלה) —
-   70% משאיר מרווח קטן בלי לגעת בכיתוב. flex עצמאי, לא תלוי ב-.overlay
-   כי entrance-bg/main/ui כולם position:absolute ויצאו מזרימת ה-flex
+/* שטח הממשק מתחת לשכבה הראשית. flex עצמאי, לא תלוי ב-.overlay כי
+   entrance-main/entrance-ui כולם position:absolute ויצאו מזרימת ה-flex
    שלו ממילא. */
 .entrance-ui {
   position: absolute;
