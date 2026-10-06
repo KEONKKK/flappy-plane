@@ -3,10 +3,13 @@
 //   1. tools/check-assets.js — עקביות APP_SHELL/ASSET_MANIFEST/גרסאות.
 //   2. עצמאות הצורות: topShape !== bottomShape תמיד (spawnTower אמיתי).
 //   3. מגן המרווח האופקי (MIN_TOWER_DISTANCE).
-//   4. משחק אמיתי (פיזיקה אמיתית, ~12 שניות) בלי שגיאות קונסול.
+//   4. משחק אמיתי (פיזיקה אמיתית, ~40 שניות) בלי שגיאות קונסול.
 //   5. בדיקת פיקסל-מדויק: שום fill לא מבצבץ ליד חוד המשולש (3.7.3-style).
 //   6. השוואת צילומי debug=towers מול baseline דטרמיניסטי
-//      ב-design/verify/regression-baseline-*.png — כל הבדל פיקסל נכשל.
+//      ב-design/verify/beeper/regression-baseline-*.png — כל הבדל פיקסל
+//      נכשל. (הקבצים הישנים ב-design/verify/regression-baseline-*.png,
+//      מלפני מעטפת הביפר, נשארים כעדות היסטורית ולא נמחקים —
+//      ראו design/PROTECTED.md.)
 //
 // מריץ שרת סטטי זמני משלו (לא תלוי בשרת פיתוח שכבר רץ על 8080) ודפדפן
 // Playwright אמיתי (תלות dev יחידה של הפרויקט — ראו package.json).
@@ -22,6 +25,7 @@ const { readPng } = require("./png-lib");
 
 const ROOT = path.join(__dirname, "..");
 const VERIFY_DIR = path.join(ROOT, "design", "verify");
+const BEEPER_VERIFY_DIR = path.join(VERIFY_DIR, "beeper");
 const UPDATE_BASELINE = process.argv.includes("--update-baseline");
 
 const MIME = {
@@ -125,13 +129,19 @@ async function withFreshPage(context, url) {
       await page.close();
     }
 
-    section("4/6 משחק אמיתי (~12 שניות, בלי שגיאות קונסול)");
+    section("4/6 משחק אמיתי (~40 שניות, בלי שגיאות קונסול)");
     {
+      // 40s, לא 12s: מאז מעטפת הביפר CONFIG.WIDTH גדל מ-400 ל-1067, אז
+      // מגדל חדש חייב לנוע כמעט פי 3 מהמרחק (1067-213=854px, לעומת
+      // 400-110=290px) לפני שהוא אפילו מגיע לאזור המטוס -- וב-headless
+      // Chromium הלולאה הפעילה (requestAnimationFrame) נצפתה רצה בערך
+      // פי 3 אטית משעון-קיר אמיתי. 12s (מכוון לעולם הישן) לא הספיקו
+      // למגדל ראשון בכלל להגיע למטוס; 40s נבדק ומכסה את שני הגורמים.
       const { page, errors } = await withFreshPage(context, `${baseUrl}/index.html`);
       await page.click("#start-btn");
       let gameOverSeen = false;
       const start = Date.now();
-      while (Date.now() - start < 12000) {
+      while (Date.now() - start < 40000) {
         const state = await page.evaluate(() => ({
           gameState, planeY: plane.y, height: CONFIG.HEIGHT,
         })).catch(() => null);
@@ -187,7 +197,7 @@ async function withFreshPage(context, url) {
 
     section(`6/6 השוואת צילומים מול baseline ${UPDATE_BASELINE ? "(מצב עדכון)" : ""}`);
     {
-      fs.mkdirSync(VERIFY_DIR, { recursive: true });
+      fs.mkdirSync(BEEPER_VERIFY_DIR, { recursive: true });
       const geom = { half: 86, H: 600 }; // CONFIG.TOWER_GAP/2, CONFIG.HEIGHT -- קבועים מוגנים, ראו PROTECTED.md
       const SCENARIOS = [
         { shape: "round", side: "top", L: 350 },
@@ -227,7 +237,7 @@ async function withFreshPage(context, url) {
         await page.screenshot({ path: capturePath, clip: box });
         await page.close();
 
-        const baselinePath = path.join(VERIFY_DIR, `regression-baseline-${sc.shape}-${sc.side}.png`);
+        const baselinePath = path.join(BEEPER_VERIFY_DIR, `regression-baseline-${sc.shape}-${sc.side}.png`);
         if (UPDATE_BASELINE || !fs.existsSync(baselinePath)) {
           fs.copyFileSync(capturePath, baselinePath);
           console.log(`  📸 baseline ${fs.existsSync(baselinePath) && !UPDATE_BASELINE ? "נוצר" : "עודכן"}: regression-baseline-${sc.shape}-${sc.side}.png`);
